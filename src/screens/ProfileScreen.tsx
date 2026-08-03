@@ -6,7 +6,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   View,
@@ -33,7 +32,7 @@ const emptyProfileSettings: ProfileSettings = {
   bodyFatPercentage: '',
   calorieIntake: '',
   theme: 'dark',
-  timerSound: 'david',
+  timerSound: 'David.mp3',
   soundEffectsEnabled: false,
 };
 
@@ -261,20 +260,12 @@ export function ProfileScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Workout</Text>
-          <SettingsInputRow
-            label="Timer sound"
-            onBlur={() => saveProfileSettings(settings)}
-            onChangeText={(value) => updateSetting('timerSound', value)}
-            placeholder="david"
-            value={settings.timerSound}
-          />
-          <Text style={styles.rowSubtext}>Import a timer sound file</Text>
-          <SettingsSwitchRow
-            enabled={settings.soundEffectsEnabled}
-            label="Sound Effects"
-            onChange={(enabled) => persistSetting('soundEffectsEnabled', enabled)}
-            sublabel="Doesn't include the rest timer alert"
-          />
+          <View style={styles.row}>
+            <Text style={styles.rowLabel}>Timer sound</Text>
+            <Text numberOfLines={1} style={styles.rowValue}>
+              Boats
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -369,22 +360,22 @@ function MetricTrendChart({ metric, entries }: MetricTrendChartProps) {
   const lineSegments =
     plotSize.width > 0 && plotSize.height > 0
       ? chartData.points.slice(1).map((point, index) => {
-          const previousPoint = chartData.points[index];
-          const x1 = (previousPoint.left / 100) * plotSize.width;
-          const y1 = (previousPoint.top / 100) * plotSize.height;
-          const x2 = (point.left / 100) * plotSize.width;
-          const y2 = (point.top / 100) * plotSize.height;
-          const deltaX = x2 - x1;
-          const deltaY = y2 - y1;
+        const previousPoint = chartData.points[index];
+        const x1 = (previousPoint.left / 100) * plotSize.width;
+        const y1 = (previousPoint.top / 100) * plotSize.height;
+        const x2 = (point.left / 100) * plotSize.width;
+        const y2 = (point.top / 100) * plotSize.height;
+        const deltaX = x2 - x1;
+        const deltaY = y2 - y1;
 
-          return {
-            id: `${previousPoint.id}-${point.id}`,
-            angle: `${Math.atan2(deltaY, deltaX)}rad`,
-            left: (x1 + x2 - Math.sqrt(deltaX * deltaX + deltaY * deltaY)) / 2,
-            length: Math.sqrt(deltaX * deltaX + deltaY * deltaY),
-            top: (y1 + y2) / 2,
-          };
-        })
+        return {
+          id: `${previousPoint.id}-${point.id}`,
+          angle: `${Math.atan2(deltaY, deltaX)}rad`,
+          left: (x1 + x2 - Math.sqrt(deltaX * deltaX + deltaY * deltaY)) / 2,
+          length: Math.sqrt(deltaX * deltaX + deltaY * deltaY),
+          top: (y1 + y2) / 2,
+        };
+      })
       : [];
 
   function updatePlotSize(event: LayoutChangeEvent) {
@@ -778,30 +769,6 @@ function ThemeDropdownRow({ label, value, isOpen, onToggle, onSelect }: ThemeDro
 
 function formatThemeLabel(theme: ThemeOption) {
   return theme === 'dark' ? 'Dark' : 'Light';
-}
-
-type SettingsSwitchRowProps = {
-  label: string;
-  sublabel: string;
-  enabled: boolean;
-  onChange: (enabled: boolean) => void;
-};
-
-function SettingsSwitchRow({ label, sublabel, enabled, onChange }: SettingsSwitchRowProps) {
-  return (
-    <View style={styles.switchRow}>
-      <View style={styles.switchText}>
-        <Text style={styles.rowLabel}>{label}</Text>
-        <Text style={styles.rowSubtext}>{sublabel}</Text>
-      </View>
-      <Switch
-        onValueChange={onChange}
-        thumbColor={enabled ? '#3b82f6' : '#c7c7cc'}
-        trackColor={{ false: '#636366', true: '#1d4f7a' }}
-        value={enabled}
-      />
-    </View>
-  );
 }
 
 // These styles mirror the app's existing black, dark gray, gray text, and blue accent palette.
@@ -1245,17 +1212,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 22,
   },
-  rowSubtext: {
-    color: '#a1a1a6',
-    fontSize: 18,
-    lineHeight: 24,
-  },
   rowInput: {
     color: '#a1a1a6',
     flex: 1,
     fontSize: 20,
     minHeight: 44,
     paddingVertical: 6,
+    textAlign: 'right',
+  },
+  rowValue: {
+    color: '#a1a1a6',
+    flex: 1,
+    fontSize: 20,
     textAlign: 'right',
   },
   screen: {
@@ -1273,16 +1241,5 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     marginBottom: 14,
-  },
-  switchRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
-    minHeight: 78,
-    paddingTop: 16,
-  },
-  switchText: {
-    flex: 1,
   },
 });

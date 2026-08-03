@@ -57,7 +57,7 @@ const PROFILE_SETTING_SEEDS: ProfileSettingSeed[] = [
   { key: 'weight', value: '' },
   { key: 'body_fat_percentage', value: '' },
   { key: 'theme', value: 'Auto dark' },
-  { key: 'timer_sound', value: 'david' },
+  { key: 'timer_sound', value: 'David.mp3' },
   { key: 'sound_effects_enabled', value: '0' },
 ];
 

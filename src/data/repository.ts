@@ -82,7 +82,7 @@ const defaultProfileSettings: ProfileSettings = {
   bodyFatPercentage: '',
   calorieIntake: '',
   theme: 'Auto dark',
-  timerSound: 'david',
+  timerSound: 'David.mp3',
   soundEffectsEnabled: false,
 };
 
