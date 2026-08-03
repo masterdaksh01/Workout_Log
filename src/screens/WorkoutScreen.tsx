@@ -135,9 +135,9 @@ export function WorkoutScreen() {
       tabBarStyle: nestedWorkoutScreenOpen
         ? { display: 'none' }
         : {
-            backgroundColor: '#1c1c1e',
-            borderTopColor: '#2c2c2e',
-          },
+          backgroundColor: '#1c1c1e',
+          borderTopColor: '#2c2c2e',
+        },
     });
 
     return () => {
@@ -629,7 +629,9 @@ export function WorkoutScreen() {
   // This render section keeps both top-tab views mounted so their local state survives tab switches.
   return (
     <View style={styles.screen}>
-      <Text style={styles.dashboardTitle}>Workout</Text>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Workout</Text>
+      </View>
 
       <View accessibilityRole="tablist" style={styles.topTabSwitcher}>
         <Pressable
@@ -1365,13 +1367,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '700',
   },
-  dashboardTitle: {
+  header: {
+    alignItems: 'center',
+    backgroundColor: '#1c1c1e',
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 74,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  headerTitle: {
     color: '#ffffff',
-    fontSize: 34,
-    fontWeight: '800',
-    marginBottom: 12,
-    marginTop: 16,
-    paddingHorizontal: 16,
+    fontSize: 28,
+    fontWeight: '700',
   },
   detailActionMenu: {
     backgroundColor: '#1c1c1e',
@@ -1733,6 +1741,7 @@ const styles = StyleSheet.create({
     gap: 4,
     marginBottom: 8,
     marginHorizontal: 16,
+    marginTop: 10,
     padding: 3,
   },
   topTabText: {

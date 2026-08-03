@@ -85,26 +85,30 @@ export function HistoryScreen() {
 
   // This render section lists performed workout summaries from SQLite.
   return (
-    <ScrollView contentContainerStyle={styles.content} style={sharedStyles.screen}>
-      <Text style={sharedStyles.title}>History</Text>
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>History</Text>
+      </View>
 
-      {workouts.length === 0 ? (
-        <Text style={sharedStyles.emptyText}>No workouts saved yet.</Text>
-      ) : (
-        workouts.map((workout) => (
-          <Pressable
-            key={workout.id}
-            onPress={() => openWorkout(workout.id)}
-            style={styles.workoutRow}
-          >
-            <Text style={styles.workoutDate}>{formatTimestamp(workout.timestamp)}</Text>
-            <Text style={sharedStyles.smallText}>
-              {workout.exerciseCount} exercises, {workout.setCount} sets
-            </Text>
-          </Pressable>
-        ))
-      )}
-    </ScrollView>
+      <ScrollView contentContainerStyle={styles.content}>
+        {workouts.length === 0 ? (
+          <Text style={sharedStyles.emptyText}>No workouts saved yet.</Text>
+        ) : (
+          workouts.map((workout) => (
+            <Pressable
+              key={workout.id}
+              onPress={() => openWorkout(workout.id)}
+              style={styles.workoutRow}
+            >
+              <Text style={styles.workoutDate}>{formatTimestamp(workout.timestamp)}</Text>
+              <Text style={sharedStyles.smallText}>
+                {workout.exerciseCount} exercises, {workout.setCount} sets
+              </Text>
+            </Pressable>
+          ))
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
@@ -116,12 +120,31 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingBottom: 24,
+    paddingHorizontal: 16,
   },
   exerciseName: {
     color: '#ffffff',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 6,
+  },
+  header: {
+    alignItems: 'center',
+    backgroundColor: '#1c1c1e',
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 74,
+    paddingHorizontal: 24,
+    paddingTop: 12,
+  },
+  headerTitle: {
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  screen: {
+    backgroundColor: '#000000',
+    flex: 1,
   },
   setRow: {
     flexDirection: 'row',
