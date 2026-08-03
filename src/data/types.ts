@@ -89,7 +89,14 @@ export type WorkoutTemplate = {
   name: string;
   folderId: number | null;
   exerciseNames: string[];
+  exercises: WorkoutTemplateExercise[];
   lastPerformed: string | null;
+};
+
+export type WorkoutTemplateExercise = {
+  id: number;
+  name: string;
+  muscleGroup: MuscleGroup | null;
 };
 
 // This type combines a folder with the template cards nested beneath it in WorkoutScreen.

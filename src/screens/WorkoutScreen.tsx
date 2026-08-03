@@ -1,4 +1,5 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { BlurView } from 'expo-blur';
 import type { ComponentRef } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -26,6 +27,7 @@ import {
   getWorkoutDashboardData,
   moveWorkoutTemplateToFolder,
   renameFolder,
+  renameWorkoutTemplate,
 } from '../data/repository';
 import type {
   CreateWorkoutTemplateInput,
@@ -33,6 +35,7 @@ import type {
   FolderWithTemplates,
   WorkoutDashboardData,
   WorkoutTemplate,
+  WorkoutTemplateExercise,
 } from '../data/types';
 import { ExercisesScreen } from './ExercisesScreen';
 import { sharedStyles } from './sharedStyles';
@@ -49,6 +52,7 @@ type DeleteConfirmation = {
   onConfirm: () => Promise<void>;
 };
 type RenameTarget = {
+  kind: 'folder' | 'workout';
   id: number;
   name: string;
 };
@@ -87,6 +91,7 @@ function getExercisePreview(exerciseNames: string[]) {
 
 // This screen is the V2 Workout tab and coordinates folder, template, menu, and drag-drop state.
 export function WorkoutScreen() {
+  const navigation = useNavigation();
   const [activeTopTab, setActiveTopTab] = useState<WorkoutTopTab>('routines');
   const [dashboardData, setDashboardData] = useState<WorkoutDashboardData>(emptyDashboardData);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<number>>(new Set());
@@ -98,6 +103,9 @@ export function WorkoutScreen() {
   const [menuTemplateId, setMenuTemplateId] = useState<number | null>(null);
   const [createTarget, setCreateTarget] = useState<CreateTarget | null>(null);
   const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation | null>(null);
+  const [selectedWorkoutId, setSelectedWorkoutId] = useState<number | null>(null);
+  const [selectedExercise, setSelectedExercise] = useState<WorkoutTemplateExercise | null>(null);
+  const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const folderRefs = useRef<Record<number, FolderViewRef | null>>({});
   const myWorkoutsHeadingRef = useRef<FolderViewRef | null>(null);
 
@@ -105,6 +113,46 @@ export function WorkoutScreen() {
   const loadDashboard = useCallback(async () => {
     setDashboardData(await getWorkoutDashboardData());
   }, []);
+
+  const allWorkouts = useMemo(
+    () => [
+      ...dashboardData.folders.flatMap((folder) => folder.workouts),
+      ...dashboardData.unassignedWorkouts,
+    ],
+    [dashboardData.folders, dashboardData.unassignedWorkouts],
+  );
+  const selectedWorkout = useMemo(
+    () => allWorkouts.find((workout) => workout.id === selectedWorkoutId) ?? null,
+    [allWorkouts, selectedWorkoutId],
+  );
+  const nestedWorkoutScreenOpen = Boolean(selectedWorkoutId || selectedExercise);
+
+  useEffect(() => {
+    navigation.setOptions({
+      tabBarStyle: nestedWorkoutScreenOpen
+        ? { display: 'none' }
+        : {
+            backgroundColor: '#1c1c1e',
+            borderTopColor: '#2c2c2e',
+          },
+    });
+
+    return () => {
+      navigation.setOptions({
+        tabBarStyle: {
+          backgroundColor: '#1c1c1e',
+          borderTopColor: '#2c2c2e',
+        },
+      });
+    };
+  }, [navigation, nestedWorkoutScreenOpen]);
+
+  useEffect(() => {
+    if (selectedWorkoutId !== null && !selectedWorkout) {
+      setSelectedWorkoutId(null);
+      setDetailMenuOpen(false);
+    }
+  }, [selectedWorkout, selectedWorkoutId]);
 
   // This focus effect refreshes the dashboard when the centered Workout tab becomes active.
   useFocusEffect(
@@ -196,6 +244,14 @@ export function WorkoutScreen() {
     });
   }, []);
 
+  const handleOpenWorkout = useCallback((templateId: number) => {
+    setFolderMenuId(null);
+    setMenuTemplateId(null);
+    setSelectedExercise(null);
+    setSelectedWorkoutId(templateId);
+    setDetailMenuOpen(false);
+  }, []);
+
   // This handler creates a folder through repository.ts after validating the modal input.
   async function handleCreateFolder() {
     if (!folderName.trim()) {
@@ -209,7 +265,7 @@ export function WorkoutScreen() {
     await loadDashboard();
   }
 
-  async function handleRenameFolder() {
+  async function handleRenameTarget() {
     if (!renameTarget) {
       return;
     }
@@ -219,7 +275,12 @@ export function WorkoutScreen() {
       return;
     }
 
-    await renameFolder(renameTarget.id, renameName);
+    if (renameTarget.kind === 'folder') {
+      await renameFolder(renameTarget.id, renameName);
+    } else {
+      await renameWorkoutTemplate(renameTarget.id, renameName);
+    }
+
     setRenameTarget(null);
     setRenameName('');
     await loadDashboard();
@@ -243,13 +304,13 @@ export function WorkoutScreen() {
         title: 'Delete template',
         message,
         onConfirm: async () => {
-            await deleteFolder(folderId);
-            setExpandedFolderIds((current) => {
-              const next = new Set(current);
-              next.delete(folderId);
-              return next;
-            });
-            await loadDashboard();
+          await deleteFolder(folderId);
+          setExpandedFolderIds((current) => {
+            const next = new Set(current);
+            next.delete(folderId);
+            return next;
+          });
+          await loadDashboard();
         },
       });
     },
@@ -270,16 +331,21 @@ export function WorkoutScreen() {
   const handleDeleteTemplate = useCallback(
     (templateId: number) => {
       setMenuTemplateId(null);
+      setDetailMenuOpen(false);
       setDeleteConfirmation({
         title: 'Delete workout',
         message: 'Delete this workout template?',
         onConfirm: async () => {
-            await deleteWorkoutTemplate(templateId);
-            await loadDashboard();
+          await deleteWorkoutTemplate(templateId);
+          if (selectedWorkoutId === templateId) {
+            setSelectedWorkoutId(null);
+            setSelectedExercise(null);
+          }
+          await loadDashboard();
         },
       });
     },
-    [loadDashboard],
+    [loadDashboard, selectedWorkoutId],
   );
 
   // This renderer connects each folder row from repository.ts to its expandable folder section component.
@@ -295,13 +361,14 @@ export function WorkoutScreen() {
         onDropTemplate={handleDropTemplate}
         onDuplicateTemplate={handleDuplicateTemplate}
         onEmptyPress={() => setCreateTarget({ folderId: item.id })}
+        onOpenWorkout={handleOpenWorkout}
         onCreateWorkout={() => {
           setFolderMenuId(null);
           setCreateTarget({ folderId: item.id });
         }}
         onRenameFolder={() => {
           setFolderMenuId(null);
-          setRenameTarget({ id: item.id, name: item.name });
+          setRenameTarget({ id: item.id, kind: 'folder', name: item.name });
           setRenameName(item.name);
         }}
         onSetFolderRef={setFolderRef}
@@ -326,6 +393,7 @@ export function WorkoutScreen() {
       handleDeleteTemplate,
       handleDropTemplate,
       handleDuplicateTemplate,
+      handleOpenWorkout,
       menuTemplateId,
       setFolderRef,
       toggleFolder,
@@ -371,6 +439,7 @@ export function WorkoutScreen() {
           onDeleteTemplate={handleDeleteTemplate}
           onDropTemplate={handleDropTemplate}
           onDuplicateTemplate={handleDuplicateTemplate}
+          onOpenWorkout={handleOpenWorkout}
           onToggleMenu={(templateId) =>
             setMenuTemplateId((current) => {
               setFolderMenuId(null);
@@ -386,9 +455,92 @@ export function WorkoutScreen() {
       handleDeleteTemplate,
       handleDropTemplate,
       handleDuplicateTemplate,
+      handleOpenWorkout,
       menuTemplateId,
     ],
   );
+
+  const modalLayer = (
+    <>
+      <FolderPromptModal
+        folderName={folderName}
+        onCancel={() => {
+          setFolderName('');
+          setFolderPromptVisible(false);
+        }}
+        onChangeFolderName={setFolderName}
+        onCreate={handleCreateFolder}
+        visible={folderPromptVisible}
+      />
+      <RenameTemplateModal
+        onCancel={() => {
+          setRenameTarget(null);
+          setRenameName('');
+        }}
+        onChangeName={setRenameName}
+        onRename={handleRenameTarget}
+        templateName={renameName}
+        visible={Boolean(renameTarget)}
+      />
+      <DeleteConfirmationModal
+        confirmation={deleteConfirmation}
+        onCancel={() => setDeleteConfirmation(null)}
+        onConfirm={async () => {
+          const confirmation = deleteConfirmation;
+
+          if (!confirmation) {
+            return;
+          }
+
+          setDeleteConfirmation(null);
+          await confirmation.onConfirm();
+        }}
+      />
+    </>
+  );
+
+  if (selectedExercise) {
+    return (
+      <>
+        <ExerciseDetailPlaceholderScreen
+          exercise={selectedExercise}
+          onBack={() => setSelectedExercise(null)}
+        />
+        {modalLayer}
+      </>
+    );
+  }
+
+  if (selectedWorkout) {
+    return (
+      <>
+        <WorkoutTemplateDetailScreen
+          menuOpen={detailMenuOpen}
+          onBack={() => {
+            setSelectedWorkoutId(null);
+            setDetailMenuOpen(false);
+          }}
+          onDelete={() => handleDeleteTemplate(selectedWorkout.id)}
+          onEdit={() => {
+            setDetailMenuOpen(false);
+            Alert.alert('Edit workout', 'Workout editing will be added later.');
+          }}
+          onOpenExercise={setSelectedExercise}
+          onRename={() => {
+            setDetailMenuOpen(false);
+            setRenameTarget({ id: selectedWorkout.id, kind: 'workout', name: selectedWorkout.name });
+            setRenameName(selectedWorkout.name);
+          }}
+          onStartWorkout={() => {
+            Alert.alert('Start workout', 'Workout tracking will be added later.');
+          }}
+          onToggleMenu={() => setDetailMenuOpen((current) => !current)}
+          workout={selectedWorkout}
+        />
+        {modalLayer}
+      </>
+    );
+  }
 
   // This branch shows the create-template flow from the same tab without adding another bottom tab.
   if (createTarget) {
@@ -459,40 +611,7 @@ export function WorkoutScreen() {
           renderItem={renderFolder}
         />
 
-        <FolderPromptModal
-          folderName={folderName}
-          onCancel={() => {
-            setFolderName('');
-            setFolderPromptVisible(false);
-          }}
-          onChangeFolderName={setFolderName}
-          onCreate={handleCreateFolder}
-          visible={folderPromptVisible}
-        />
-        <RenameTemplateModal
-          onCancel={() => {
-            setRenameTarget(null);
-            setRenameName('');
-          }}
-          onChangeName={setRenameName}
-          onRename={handleRenameFolder}
-          templateName={renameName}
-          visible={Boolean(renameTarget)}
-        />
-        <DeleteConfirmationModal
-          confirmation={deleteConfirmation}
-          onCancel={() => setDeleteConfirmation(null)}
-          onConfirm={async () => {
-            const confirmation = deleteConfirmation;
-
-            if (!confirmation) {
-              return;
-            }
-
-            setDeleteConfirmation(null);
-            await confirmation.onConfirm();
-          }}
-        />
+        {modalLayer}
       </View>
 
       <View
@@ -564,7 +683,7 @@ function DeleteConfirmationModal({
 }: DeleteConfirmationModalProps) {
   return (
     <Modal animationType="fade" onRequestClose={onCancel} transparent visible={Boolean(confirmation)}>
-      <View style={styles.modalBackdrop}>
+      <BlurView intensity={35} style={styles.confirmationBackdrop} tint="dark">
         <View style={styles.modalCard}>
           <Text style={styles.modalTitle}>{confirmation?.title}</Text>
           <Text style={styles.modalMessage}>{confirmation?.message}</Text>
@@ -587,7 +706,7 @@ function DeleteConfirmationModal({
             </Pressable>
           </View>
         </View>
-      </View>
+      </BlurView>
     </Modal>
   );
 }
@@ -749,6 +868,142 @@ function CreateWorkoutTemplateScreen({
   );
 }
 
+type WorkoutTemplateDetailScreenProps = {
+  workout: WorkoutTemplate;
+  menuOpen: boolean;
+  onBack: () => void;
+  onToggleMenu: () => void;
+  onEdit: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onOpenExercise: (exercise: WorkoutTemplateExercise) => void;
+  onStartWorkout: () => void;
+};
+
+function WorkoutTemplateDetailScreen({
+  workout,
+  menuOpen,
+  onBack,
+  onToggleMenu,
+  onEdit,
+  onRename,
+  onDelete,
+  onOpenExercise,
+  onStartWorkout,
+}: WorkoutTemplateDetailScreenProps) {
+  return (
+    <View style={styles.detailScreen}>
+      <View style={styles.detailTopBar}>
+        <Pressable onPress={onBack} style={styles.detailIconButton}>
+          <Text style={styles.detailBackText}>{'<'}</Text>
+        </Pressable>
+        <Pressable onPress={onToggleMenu} style={styles.detailIconButton}>
+          <Text style={styles.detailMenuText}>...</Text>
+        </Pressable>
+      </View>
+
+      {menuOpen ? (
+        <View style={styles.detailActionMenu}>
+          <Pressable onPress={onEdit} style={styles.detailActionMenuItem}>
+            <Text style={styles.detailActionMenuText}>Edit</Text>
+          </Pressable>
+          <Pressable onPress={onRename} style={styles.detailActionMenuItem}>
+            <Text style={styles.detailActionMenuText}>Rename</Text>
+          </Pressable>
+          <Pressable onPress={onDelete} style={styles.detailActionMenuItem}>
+            <Text style={styles.detailActionMenuText}>Delete</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      <FlatList
+        ListEmptyComponent={<Text style={sharedStyles.emptyText}>No exercises added.</Text>}
+        ListHeaderComponent={
+          <View style={styles.detailHeader}>
+            <Text numberOfLines={1} style={styles.detailTitle}>
+              {workout.name}
+            </Text>
+            <Text numberOfLines={1} style={styles.detailSubtitle}>
+              Last performed: {formatLastPerformed(workout.lastPerformed) || '-'}
+            </Text>
+          </View>
+        }
+        contentContainerStyle={styles.detailListContent}
+        data={workout.exercises}
+        keyExtractor={(exercise, index) => `${exercise.id}-${index}`}
+        renderItem={({ item, index }) => (
+          <WorkoutTemplateExerciseRow
+            exercise={item}
+            index={index}
+            onOpen={() => onOpenExercise(item)}
+          />
+        )}
+      />
+
+      <View style={styles.startWorkoutBar}>
+        <Pressable onPress={onStartWorkout} style={styles.startWorkoutButton}>
+          <Text style={styles.startWorkoutButtonText}>START WORKOUT</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+type WorkoutTemplateExerciseRowProps = {
+  exercise: WorkoutTemplateExercise;
+  index: number;
+  onOpen: () => void;
+};
+
+function WorkoutTemplateExerciseRow({
+  exercise,
+  index,
+  onOpen,
+}: WorkoutTemplateExerciseRowProps) {
+  return (
+    <View style={styles.detailExerciseRow}>
+      <View style={styles.detailExerciseThumb}>
+        <Text style={styles.detailExerciseThumbText}>{index + 1}</Text>
+      </View>
+      <View style={styles.detailExerciseText}>
+        <Text numberOfLines={1} style={styles.detailExerciseName}>
+          {exercise.name}
+        </Text>
+        <Text numberOfLines={1} style={styles.detailExerciseGroup}>
+          {exercise.muscleGroup ?? 'Exercise'}
+        </Text>
+      </View>
+      <Pressable onPress={onOpen} style={styles.exerciseHelpButton}>
+        <Text style={styles.exerciseHelpText}>?</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+type ExerciseDetailPlaceholderScreenProps = {
+  exercise: WorkoutTemplateExercise;
+  onBack: () => void;
+};
+
+function ExerciseDetailPlaceholderScreen({
+  exercise,
+  onBack,
+}: ExerciseDetailPlaceholderScreenProps) {
+  return (
+    <View style={styles.detailScreen}>
+      <View style={styles.detailTopBar}>
+        <Pressable onPress={onBack} style={styles.detailIconButton}>
+          <Text style={styles.detailBackText}>{'<'}</Text>
+        </Pressable>
+      </View>
+      <View style={styles.exerciseDetailContent}>
+        <Text style={styles.detailTitle}>{exercise.name}</Text>
+        <Text style={styles.detailSubtitle}>{exercise.muscleGroup ?? 'Exercise'}</Text>
+      </View>
+    </View>
+  );
+}
+
 // This prop type passes one folder and all dashboard actions into the memoized folder section.
 type FolderSectionProps = {
   folder: FolderWithTemplates;
@@ -766,6 +1021,7 @@ type FolderSectionProps = {
   onCreateWorkout: () => void;
   onDuplicateTemplate: (templateId: number) => void;
   onDeleteTemplate: (templateId: number) => void;
+  onOpenWorkout: (templateId: number) => void;
   onDropTemplate: (templateId: number, screenY: number) => void;
 };
 
@@ -786,6 +1042,7 @@ const FolderSection = memo(function FolderSection({
   onCreateWorkout,
   onDuplicateTemplate,
   onDeleteTemplate,
+  onOpenWorkout,
   onDropTemplate,
 }: FolderSectionProps) {
   // This callback registers the folder row with the parent so drag release positions can be measured.
@@ -841,6 +1098,7 @@ const FolderSection = memo(function FolderSection({
             onDeleteTemplate={onDeleteTemplate}
             onDropTemplate={onDropTemplate}
             onDuplicateTemplate={onDuplicateTemplate}
+            onOpenWorkout={onOpenWorkout}
             onToggleMenu={onToggleMenu}
             workouts={folder.workouts}
           />
@@ -857,6 +1115,7 @@ type WorkoutCardGridProps = {
   onToggleMenu: (templateId: number) => void;
   onDuplicateTemplate: (templateId: number) => void;
   onDeleteTemplate: (templateId: number) => void;
+  onOpenWorkout: (templateId: number) => void;
   onDropTemplate: (templateId: number, screenY: number) => void;
 };
 
@@ -867,6 +1126,7 @@ const WorkoutCardGrid = memo(function WorkoutCardGrid({
   onToggleMenu,
   onDuplicateTemplate,
   onDeleteTemplate,
+  onOpenWorkout,
   onDropTemplate,
 }: WorkoutCardGridProps) {
   if (workouts.length === 0) {
@@ -882,6 +1142,7 @@ const WorkoutCardGrid = memo(function WorkoutCardGrid({
           onDelete={() => onDeleteTemplate(workout.id)}
           onDrop={(screenY) => onDropTemplate(workout.id, screenY)}
           onDuplicate={() => onDuplicateTemplate(workout.id)}
+          onOpen={() => onOpenWorkout(workout.id)}
           onToggleMenu={() => onToggleMenu(workout.id)}
           workout={workout}
         />
@@ -897,6 +1158,7 @@ type WorkoutCardProps = {
   onToggleMenu: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onOpen: () => void;
   onDrop: (screenY: number) => void;
 };
 
@@ -907,6 +1169,7 @@ const WorkoutCard = memo(function WorkoutCard({
   onToggleMenu,
   onDuplicate,
   onDelete,
+  onOpen,
   onDrop,
 }: WorkoutCardProps) {
   const pan = useRef(new Animated.ValueXY()).current;
@@ -960,16 +1223,18 @@ const WorkoutCard = memo(function WorkoutCard({
         </View>
       ) : null}
 
-      <Text numberOfLines={1} style={styles.cardTitle}>
-        {workout.name}
-      </Text>
-      <Text numberOfLines={2} style={styles.exercisePreview}>
-        {getExercisePreview(workout.exerciseNames)}
-      </Text>
-      <View style={styles.lastPerformedRow}>
-        <Text style={styles.lastPerformedLabel}>Last performed</Text>
-        <Text style={styles.lastPerformedDate}>{formatLastPerformed(workout.lastPerformed)}</Text>
-      </View>
+      <Pressable onPress={onOpen} style={styles.cardPressArea}>
+        <Text numberOfLines={1} style={styles.cardTitle}>
+          {workout.name}
+        </Text>
+        <Text numberOfLines={2} style={styles.exercisePreview}>
+          {getExercisePreview(workout.exerciseNames)}
+        </Text>
+        <View style={styles.lastPerformedRow}>
+          <Text style={styles.lastPerformedLabel}>Last performed</Text>
+          <Text style={styles.lastPerformedDate}>{formatLastPerformed(workout.lastPerformed)}</Text>
+        </View>
+      </Pressable>
     </Animated.View>
   );
 });
@@ -1008,6 +1273,9 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingRight: 30,
   },
+  cardPressArea: {
+    flex: 1,
+  },
   createContent: {
     padding: 16,
     paddingBottom: 28,
@@ -1031,6 +1299,107 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     marginTop: 16,
     paddingHorizontal: 16,
+  },
+  detailActionMenu: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#2c2c2e',
+    borderRadius: 6,
+    borderWidth: 1,
+    elevation: 5,
+    position: 'absolute',
+    right: 16,
+    top: 64,
+    width: 180,
+    zIndex: 8,
+  },
+  detailActionMenuItem: {
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  detailActionMenuText: {
+    color: '#ffffff',
+    fontSize: 18,
+  },
+  detailBackText: {
+    color: '#ffffff',
+    fontSize: 30,
+    fontWeight: '700',
+    lineHeight: 32,
+  },
+  detailExerciseGroup: {
+    color: '#a1a1a6',
+    fontSize: 17,
+    marginTop: 3,
+  },
+  detailExerciseName: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  detailExerciseRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+    minHeight: 76,
+    paddingVertical: 10,
+  },
+  detailExerciseText: {
+    flex: 1,
+  },
+  detailExerciseThumb: {
+    alignItems: 'center',
+    backgroundColor: '#2c2c2e',
+    borderRadius: 6,
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  detailExerciseThumbText: {
+    color: '#e5e5ea',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  detailHeader: {
+    paddingBottom: 24,
+  },
+  detailIconButton: {
+    alignItems: 'center',
+    height: 44,
+    justifyContent: 'center',
+    width: 44,
+  },
+  detailListContent: {
+    paddingHorizontal: 24,
+    paddingBottom: 118,
+  },
+  detailMenuText: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '800',
+    lineHeight: 24,
+  },
+  detailScreen: {
+    backgroundColor: '#000000',
+    flex: 1,
+  },
+  detailSubtitle: {
+    color: '#a1a1a6',
+    fontSize: 20,
+    lineHeight: 28,
+    marginTop: 12,
+  },
+  detailTitle: {
+    color: '#ffffff',
+    fontSize: 42,
+    fontWeight: '400',
+  },
+  detailTopBar: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 28,
   },
   draggingCard: {
     elevation: 8,
@@ -1077,6 +1446,20 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 10,
     minHeight: 38,
+  },
+  exerciseDetailContent: {
+    paddingHorizontal: 24,
+  },
+  exerciseHelpButton: {
+    alignItems: 'center',
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  exerciseHelpText: {
+    color: '#c7c7cc',
+    fontSize: 28,
+    fontWeight: '700',
   },
   exerciseText: {
     flex: 1,
@@ -1183,6 +1566,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
+  confirmationBackdrop: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
   modalButton: {
     minWidth: 92,
   },
@@ -1221,6 +1611,28 @@ const styles = StyleSheet.create({
     color: '#e5e5ea',
     fontSize: 16,
     paddingVertical: 5,
+  },
+  startWorkoutBar: {
+    backgroundColor: '#000000',
+    borderTopColor: '#1c1c1e',
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    padding: 16,
+    position: 'absolute',
+    right: 0,
+  },
+  startWorkoutButton: {
+    alignItems: 'center',
+    backgroundColor: '#3b82f6',
+    borderRadius: 6,
+    justifyContent: 'center',
+    minHeight: 54,
+  },
+  startWorkoutButtonText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '800',
   },
   templatesHeader: {
     alignItems: 'center',

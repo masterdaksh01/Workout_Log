@@ -13,6 +13,7 @@ import type {
   WorkoutSet,
   WorkoutSummary,
   WorkoutTemplate,
+  WorkoutTemplateExercise,
 } from './types';
 
 // This result type normalizes SQLite insert responses used by create and save functions below.
@@ -42,7 +43,9 @@ type FolderRow = {
 // This row type carries template exercise names from SQLite into WorkoutScreen preview text.
 type TemplateExerciseRow = {
   workoutId: number;
+  exerciseId: number;
   exerciseName: string | null;
+  muscleGroup: MuscleGroup | null;
 };
 
 // This row type carries template card metadata from SQLite into WorkoutDashboardData.
@@ -230,7 +233,9 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
   const templateExercises = await db.getAllAsync<TemplateExerciseRow>(`
     SELECT
       workout_exercises.workout_id AS workoutId,
-      exercises.name AS exerciseName
+      workout_exercises.exercise_id AS exerciseId,
+      exercises.name AS exerciseName,
+      exercises.muscle_group AS muscleGroup
     FROM workout_exercises
     JOIN workouts
       ON workouts.id = workout_exercises.workout_id
@@ -240,12 +245,23 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
     ORDER BY workout_exercises.id ASC
   `);
   const exerciseNamesByWorkoutId = new Map<number, string[]>();
+  const exercisesByWorkoutId = new Map<number, WorkoutTemplateExercise[]>();
 
   // This loop groups template exercise names so WorkoutScreen cards can show concise previews.
   for (const exercise of templateExercises) {
     const exerciseNames = exerciseNamesByWorkoutId.get(exercise.workoutId) ?? [];
-    exerciseNames.push(exercise.exerciseName ?? 'Deleted exercise');
+    const exerciseName = exercise.exerciseName ?? `Deleted exercise #${exercise.exerciseId}`;
+
+    exerciseNames.push(exerciseName);
     exerciseNamesByWorkoutId.set(exercise.workoutId, exerciseNames);
+
+    const workoutExercises = exercisesByWorkoutId.get(exercise.workoutId) ?? [];
+    workoutExercises.push({
+      id: exercise.exerciseId,
+      muscleGroup: exercise.muscleGroup,
+      name: exerciseName,
+    });
+    exercisesByWorkoutId.set(exercise.workoutId, workoutExercises);
   }
 
   const templatesByFolderId = new Map<number | null, WorkoutTemplate[]>();
@@ -257,6 +273,7 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       name: template.name ?? `Workout ${template.id}`,
       folderId: template.folderId,
       exerciseNames: exerciseNamesByWorkoutId.get(template.id) ?? [],
+      exercises: exercisesByWorkoutId.get(template.id) ?? [],
       lastPerformed: null,
     };
     const folderTemplates = templatesByFolderId.get(template.folderId) ?? [];
@@ -340,6 +357,25 @@ export async function duplicateWorkoutTemplate(id: number) {
     folderId: source.folderId,
     name: source.name ?? `Workout ${source.id}`,
   });
+}
+
+// This function renames one workout template from the detail menu.
+export async function renameWorkoutTemplate(id: number, name: string) {
+  const db = await getDatabase();
+  const template = await db.getFirstAsync<{ id: number }>(
+    'SELECT id FROM workouts WHERE id = ? AND is_template = 1',
+    id,
+  );
+
+  if (!template) {
+    throw new Error('Workout template not found.');
+  }
+
+  await db.runAsync(
+    'UPDATE workouts SET name = ? WHERE id = ? AND is_template = 1',
+    name.trim(),
+    id,
+  );
 }
 
 // This function removes only template-owned data so completed workout rows remain available to HistoryScreen.

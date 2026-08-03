@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useFocusEffect } from '@react-navigation/native';
 
-import { deleteExercise, getExercisesByMuscleGroup } from '../data/repository';
+import { deleteExercise, getExercises, getExercisesByMuscleGroup } from '../data/repository';
 import type { Exercise, MuscleGroup } from '../data/types';
 import { sharedStyles } from './sharedStyles';
 
 type BodyView = 'front' | 'back';
 type CalloutSide = 'left' | 'right';
+type ExerciseListFilter = MuscleGroup | 'All';
 
 type MuscleCallout = {
   muscleGroup: MuscleGroup;
@@ -47,28 +49,28 @@ const backCallouts: MuscleCallout[] = [
 // This screen switches between a visual body browser and the selected muscle group's exercise list.
 export function ExercisesScreen() {
   const [bodyView, setBodyView] = useState<BodyView>('front');
-  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<MuscleGroup | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState<ExerciseListFilter | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [exerciseToDelete, setExerciseToDelete] = useState<Exercise | null>(null);
 
-  // This loader queries only exercises assigned to the selected visual muscle group.
-  const loadMuscleGroup = useCallback(async (muscleGroup: MuscleGroup) => {
-    setExercises(await getExercisesByMuscleGroup(muscleGroup));
+  // This loader queries either every exercise or the selected visual muscle group.
+  const loadExercises = useCallback(async (filter: ExerciseListFilter) => {
+    setExercises(filter === 'All' ? await getExercises() : await getExercisesByMuscleGroup(filter));
   }, []);
 
   // This focus effect refreshes an open detail view after its exercise data may have changed.
   useFocusEffect(
     useCallback(() => {
-      if (selectedMuscleGroup) {
-        loadMuscleGroup(selectedMuscleGroup);
+      if (selectedFilter) {
+        loadExercises(selectedFilter);
       }
-    }, [loadMuscleGroup, selectedMuscleGroup]),
+    }, [loadExercises, selectedFilter]),
   );
 
-  // This handler opens the exercise list for a clicked muscle-group label.
-  async function openMuscleGroup(muscleGroup: MuscleGroup) {
-    setSelectedMuscleGroup(muscleGroup);
-    await loadMuscleGroup(muscleGroup);
+  // This handler opens the exercise list for a clicked filter label.
+  async function openExerciseList(filter: ExerciseListFilter) {
+    setSelectedFilter(filter);
+    await loadExercises(filter);
   }
 
   // This handler preserves existing exercise deletion and refreshes the active muscle group.
@@ -76,25 +78,25 @@ export function ExercisesScreen() {
     await deleteExercise(id);
     setExerciseToDelete(null);
 
-    if (selectedMuscleGroup) {
-      await loadMuscleGroup(selectedMuscleGroup);
+    if (selectedFilter) {
+      await loadExercises(selectedFilter);
     }
   }
 
   // This branch displays exercises assigned to the label selected in the visual browser.
-  if (selectedMuscleGroup) {
+  if (selectedFilter) {
     return (
       <>
         <ScrollView contentContainerStyle={styles.detailContent} style={sharedStyles.screen}>
           <Pressable
-            onPress={() => setSelectedMuscleGroup(null)}
+            onPress={() => setSelectedFilter(null)}
             style={[sharedStyles.button, sharedStyles.buttonSecondary, styles.backButton]}
           >
             <Text style={sharedStyles.buttonTextSecondary}>Back</Text>
           </Pressable>
 
           <Text style={sharedStyles.title}>Exercises</Text>
-          <Text style={styles.muscleGroupTitle}>{selectedMuscleGroup}</Text>
+          <Text style={styles.muscleGroupTitle}>{selectedFilter}</Text>
 
           {exercises.length === 0 ? (
             <Text style={sharedStyles.emptyText}>No exercises assigned to this muscle group.</Text>
@@ -121,7 +123,7 @@ export function ExercisesScreen() {
           transparent
           visible={exerciseToDelete !== null}
         >
-          <View style={styles.modalOverlay}>
+          <BlurView intensity={35} style={styles.modalOverlay} tint="dark">
             <View style={styles.confirmDialog}>
               <Text style={styles.confirmTitle}>Delete exercise?</Text>
               <Text style={styles.confirmMessage}>
@@ -149,7 +151,7 @@ export function ExercisesScreen() {
                 </Pressable>
               </View>
             </View>
-          </View>
+          </BlurView>
         </Modal>
       </>
     );
@@ -174,21 +176,17 @@ export function ExercisesScreen() {
           <MuscleGroupCallout
             key={`${bodyView}-${callout.muscleGroup}`}
             callout={callout}
-            onPress={openMuscleGroup}
+            onPress={openExerciseList}
           />
         ))}
 
         <Pressable
           hitSlop={6}
-          onPress={() => openMuscleGroup('Cardio')}
-          style={({ pressed }) => [
-            styles.labelButton,
-            styles.cardioButton,
-            pressed ? styles.labelButtonPressed : null,
-          ]}
+          onPress={() => openExerciseList('All')}
+          style={({ pressed }) => [styles.allButton, pressed ? styles.actionButtonPressed : null]}
         >
-          <Text numberOfLines={1} style={styles.labelText}>
-            Cardio
+          <Text numberOfLines={1} style={styles.actionButtonText}>
+            All
           </Text>
         </Pressable>
 
@@ -205,7 +203,7 @@ export function ExercisesScreen() {
 
 type MuscleGroupCalloutProps = {
   callout: MuscleCallout;
-  onPress: (muscleGroup: MuscleGroup) => void;
+  onPress: (filter: ExerciseListFilter) => void;
 };
 
 // This component joins one clickable label to the body with a horizontal leader line and endpoint dot.
@@ -284,11 +282,28 @@ const styles = StyleSheet.create({
   calloutRight: {
     right: 0,
   },
-  cardioButton: {
+  allButton: {
+    alignSelf: 'center',
+    alignItems: 'center',
+    backgroundColor: '#3b82f6',
+    borderRadius: 6,
     bottom: 8,
-    left: 6,
+    height: 38,
+    justifyContent: 'center',
+    left: 0,
+    paddingHorizontal: 14,
     position: 'absolute',
+    right: 0,
+    width: 78,
     zIndex: 3,
+  },
+  actionButtonPressed: {
+    backgroundColor: '#2563eb',
+  },
+  actionButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
   },
   confirmActions: {
     flexDirection: 'row',
@@ -403,11 +418,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     borderRadius: 6,
     bottom: 8,
-    minHeight: 38,
+    height: 38,
+    justifyContent: 'center',
     paddingHorizontal: 14,
     position: 'absolute',
     right: 6,
-    justifyContent: 'center',
+    width: 78,
     zIndex: 3,
   },
   rotateButtonText: {
