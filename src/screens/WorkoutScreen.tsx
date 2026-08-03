@@ -1,10 +1,12 @@
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import type { ComponentRef } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  BackHandler,
   FlatList,
   Image,
   Modal,
@@ -92,6 +94,7 @@ function getExercisePreview(exerciseNames: string[]) {
 // This screen is the V2 Workout tab and coordinates folder, template, menu, and drag-drop state.
 export function WorkoutScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const [activeTopTab, setActiveTopTab] = useState<WorkoutTopTab>('routines');
   const [dashboardData, setDashboardData] = useState<WorkoutDashboardData>(emptyDashboardData);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<number>>(new Set());
@@ -154,11 +157,81 @@ export function WorkoutScreen() {
     }
   }, [selectedWorkout, selectedWorkoutId]);
 
+  useEffect(() => {
+    const params = route.params as { initialTopTab?: WorkoutTopTab } | undefined;
+
+    if (params?.initialTopTab) {
+      setActiveTopTab(params.initialTopTab);
+      navigation.setParams({ initialTopTab: undefined } as never);
+    }
+  }, [navigation, route.params]);
+
   // This focus effect refreshes the dashboard when the centered Workout tab becomes active.
   useFocusEffect(
     useCallback(() => {
       loadDashboard();
     }, [loadDashboard]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (deleteConfirmation) {
+          setDeleteConfirmation(null);
+          return true;
+        }
+
+        if (renameTarget) {
+          setRenameTarget(null);
+          setRenameName('');
+          return true;
+        }
+
+        if (folderPromptVisible) {
+          setFolderName('');
+          setFolderPromptVisible(false);
+          return true;
+        }
+
+        if (detailMenuOpen) {
+          setDetailMenuOpen(false);
+          return true;
+        }
+
+        if (selectedExercise) {
+          setSelectedExercise(null);
+          return true;
+        }
+
+        if (selectedWorkoutId) {
+          setSelectedWorkoutId(null);
+          return true;
+        }
+
+        if (createTarget) {
+          setCreateTarget(null);
+          return true;
+        }
+
+        if (activeTopTab === 'exercises') {
+          setActiveTopTab('routines');
+          return true;
+        }
+
+        return false;
+      });
+
+      return () => subscription.remove();
+    }, [
+      activeTopTab,
+      createTarget,
+      deleteConfirmation,
+      detailMenuOpen,
+      folderPromptVisible,
+      renameTarget,
+      selectedExercise,
+      selectedWorkoutId,
+    ]),
   );
 
   // This callback keeps a map of folder view refs so drop coordinates can be matched to folders.
@@ -617,7 +690,7 @@ export function WorkoutScreen() {
       <View
         style={[styles.topTabContent, activeTopTab !== 'exercises' ? styles.hiddenTabContent : null]}
       >
-        <ExercisesScreen />
+        <ExercisesScreen isActive={activeTopTab === 'exercises'} />
       </View>
     </View>
   );
@@ -895,7 +968,7 @@ function WorkoutTemplateDetailScreen({
     <View style={styles.detailScreen}>
       <View style={styles.detailTopBar}>
         <Pressable onPress={onBack} style={styles.detailIconButton}>
-          <Text style={styles.detailBackText}>{'<'}</Text>
+          <Ionicons color="#ffffff" name="chevron-back" size={30} />
         </Pressable>
         <Pressable onPress={onToggleMenu} style={styles.detailIconButton}>
           <Text style={styles.detailMenuText}>...</Text>
@@ -993,7 +1066,7 @@ function ExerciseDetailPlaceholderScreen({
     <View style={styles.detailScreen}>
       <View style={styles.detailTopBar}>
         <Pressable onPress={onBack} style={styles.detailIconButton}>
-          <Text style={styles.detailBackText}>{'<'}</Text>
+          <Ionicons color="#ffffff" name="chevron-back" size={30} />
         </Pressable>
       </View>
       <View style={styles.exerciseDetailContent}>
@@ -1319,12 +1392,6 @@ const styles = StyleSheet.create({
   detailActionMenuText: {
     color: '#ffffff',
     fontSize: 18,
-  },
-  detailBackText: {
-    color: '#ffffff',
-    fontSize: 30,
-    fontWeight: '700',
-    lineHeight: 32,
   },
   detailExerciseGroup: {
     color: '#a1a1a6',

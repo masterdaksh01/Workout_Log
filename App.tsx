@@ -12,7 +12,7 @@ import { WorkoutScreen } from './src/screens/WorkoutScreen';
 // This tab type defines the only routes App.tsx exposes to the screen files.
 type RootTabParamList = {
   History: undefined;
-  Workout: undefined;
+  Workout: { initialTopTab?: 'routines' | 'exercises' } | undefined;
   Profile: undefined;
 };
 

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BackHandler, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -47,7 +47,7 @@ const backCallouts: MuscleCallout[] = [
 ];
 
 // This screen switches between a visual body browser and the selected muscle group's exercise list.
-export function ExercisesScreen() {
+export function ExercisesScreen({ isActive = true }: { isActive?: boolean }) {
   const [bodyView, setBodyView] = useState<BodyView>('front');
   const [selectedFilter, setSelectedFilter] = useState<ExerciseListFilter | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -65,6 +65,30 @@ export function ExercisesScreen() {
         loadExercises(selectedFilter);
       }
     }, [loadExercises, selectedFilter]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (!isActive) {
+          return false;
+        }
+
+        if (exerciseToDelete) {
+          setExerciseToDelete(null);
+          return true;
+        }
+
+        if (selectedFilter) {
+          setSelectedFilter(null);
+          return true;
+        }
+
+        return false;
+      });
+
+      return () => subscription.remove();
+    }, [exerciseToDelete, isActive, selectedFilter]),
   );
 
   // This handler opens the exercise list for a clicked filter label.

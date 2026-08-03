@@ -37,6 +37,27 @@ export type CreateExerciseInput = {
   muscleGroup: MuscleGroup;
 };
 
+// This type stores editable profile/settings values shown on ProfileScreen.
+export type ProfileSettings = {
+  name: string;
+  age: string;
+  weight: string;
+  bodyFatPercentage: string;
+  calorieIntake: string;
+  theme: string;
+  timerSound: string;
+  soundEffectsEnabled: boolean;
+};
+
+export type ProfileMetricKey = 'weight' | 'bodyFatPercentage' | 'calorieIntake';
+
+export type ProfileMetricEntry = {
+  id: string;
+  metric: ProfileMetricKey;
+  timestamp: string;
+  value: string;
+};
+
 // This type represents one performed set returned in HistoryScreen workout details.
 export type WorkoutSet = {
   id: number;

@@ -11,6 +11,11 @@ type BaseExerciseSeed = {
   muscleGroup: MuscleGroup;
 };
 
+type ProfileSettingSeed = {
+  key: string;
+  value: string;
+};
+
 const BASE_EXERCISES: BaseExerciseSeed[] = [
   { baseKey: 'barbell-overhead-press', name: 'Barbell Overhead Press', muscleGroup: 'Shoulders' },
   { baseKey: 'dumbbell-lateral-raise', name: 'Dumbbell Lateral Raise', muscleGroup: 'Shoulders' },
@@ -44,6 +49,16 @@ const BASE_EXERCISES: BaseExerciseSeed[] = [
   { baseKey: 'lying-leg-curl', name: 'Lying Leg Curl', muscleGroup: 'Hamstrings' },
   { baseKey: 'standing-calf-raise', name: 'Standing Calf Raise', muscleGroup: 'Calves' },
   { baseKey: 'seated-calf-raise', name: 'Seated Calf Raise', muscleGroup: 'Calves' },
+];
+
+const PROFILE_SETTING_SEEDS: ProfileSettingSeed[] = [
+  { key: 'name', value: '' },
+  { key: 'age', value: '' },
+  { key: 'weight', value: '' },
+  { key: 'body_fat_percentage', value: '' },
+  { key: 'theme', value: 'Auto dark' },
+  { key: 'timer_sound', value: 'david' },
+  { key: 'sound_effects_enabled', value: '0' },
 ];
 
 // This helper opens the local Expo SQLite database used by repository.ts.
@@ -104,6 +119,11 @@ export async function initDatabase() {
       FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS profile_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_workout_exercises_workout_id
       ON workout_exercises(workout_id);
 
@@ -114,6 +134,7 @@ export async function initDatabase() {
   await migrateWorkoutColumns();
   await migrateExerciseColumns();
   await migrateWorkoutExerciseColumns();
+  await seedProfileSettings();
   await seedBaseExercises();
 }
 
@@ -355,6 +376,28 @@ async function seedBaseExercises() {
         exercise.baseKey,
         exercise.name,
         exercise.muscleGroup,
+      );
+    }
+
+    await db.execAsync('COMMIT;');
+  } catch (error) {
+    await db.execAsync('ROLLBACK;');
+    throw error;
+  }
+}
+
+// This keeps editable ProfileScreen values available even on upgraded installs.
+async function seedProfileSettings() {
+  const db = await getDatabase();
+
+  await db.execAsync('BEGIN TRANSACTION;');
+
+  try {
+    for (const setting of PROFILE_SETTING_SEEDS) {
+      await db.runAsync(
+        'INSERT OR IGNORE INTO profile_settings (key, value) VALUES (?, ?)',
+        setting.key,
+        setting.value,
       );
     }
 

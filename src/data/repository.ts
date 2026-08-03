@@ -6,6 +6,9 @@ import type {
   Folder,
   FolderWithTemplates,
   MuscleGroup,
+  ProfileMetricEntry,
+  ProfileMetricKey,
+  ProfileSettings,
   SaveWorkoutExercise,
   WorkoutDashboardData,
   WorkoutDetail,
@@ -67,6 +70,28 @@ type TemplateExerciseIdRow = {
   exerciseId: number;
 };
 
+type ProfileSettingRow = {
+  key: string;
+  value: string;
+};
+
+const defaultProfileSettings: ProfileSettings = {
+  name: '',
+  age: '',
+  weight: '',
+  bodyFatPercentage: '',
+  calorieIntake: '',
+  theme: 'Auto dark',
+  timerSound: 'david',
+  soundEffectsEnabled: false,
+};
+
+const metricHistorySettingKeys: Record<ProfileMetricKey, string> = {
+  weight: 'weight_history',
+  bodyFatPercentage: 'body_fat_percentage_history',
+  calorieIntake: 'calorie_intake_history',
+};
+
 // This function returns all exercises for ExercisesScreen lists and WorkoutScreen template creation.
 export async function getExercises() {
   const db = await getDatabase();
@@ -105,6 +130,150 @@ export async function getExercisesByMuscleGroup(muscleGroup: MuscleGroup) {
     `,
     muscleGroup,
   );
+}
+
+// This function returns the editable settings shown by ProfileScreen.
+export async function getProfileSettings(): Promise<ProfileSettings> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<ProfileSettingRow>(
+    'SELECT key, value FROM profile_settings',
+  );
+  const settingsByKey = new Map(rows.map((row) => [row.key, row.value]));
+
+  return {
+    name: settingsByKey.get('name') ?? defaultProfileSettings.name,
+    age: settingsByKey.get('age') ?? defaultProfileSettings.age,
+    weight: settingsByKey.get('weight') ?? defaultProfileSettings.weight,
+    bodyFatPercentage:
+      settingsByKey.get('body_fat_percentage') ?? defaultProfileSettings.bodyFatPercentage,
+    calorieIntake: settingsByKey.get('calorie_intake') ?? defaultProfileSettings.calorieIntake,
+    theme: settingsByKey.get('theme') ?? defaultProfileSettings.theme,
+    timerSound: settingsByKey.get('timer_sound') ?? defaultProfileSettings.timerSound,
+    soundEffectsEnabled:
+      (settingsByKey.get('sound_effects_enabled') ?? '0') === '1',
+  };
+}
+
+// This function persists ProfileScreen edits into the local settings table.
+export async function saveProfileSettings(settings: ProfileSettings) {
+  const db = await getDatabase();
+  const rows: ProfileSettingRow[] = [
+    { key: 'name', value: settings.name.trim() },
+    { key: 'age', value: settings.age.trim() },
+    { key: 'weight', value: settings.weight.trim() },
+    { key: 'body_fat_percentage', value: settings.bodyFatPercentage.trim() },
+    { key: 'calorie_intake', value: settings.calorieIntake.trim() },
+    { key: 'theme', value: settings.theme.trim() || defaultProfileSettings.theme },
+    { key: 'timer_sound', value: settings.timerSound.trim() || defaultProfileSettings.timerSound },
+    { key: 'sound_effects_enabled', value: settings.soundEffectsEnabled ? '1' : '0' },
+  ];
+
+  await db.execAsync('BEGIN TRANSACTION;');
+
+  try {
+    for (const row of rows) {
+      await db.runAsync(
+        `
+          INSERT INTO profile_settings (key, value)
+          VALUES (?, ?)
+          ON CONFLICT(key) DO UPDATE SET value = excluded.value
+        `,
+        row.key,
+        row.value,
+      );
+    }
+
+    await db.execAsync('COMMIT;');
+  } catch (error) {
+    await db.execAsync('ROLLBACK;');
+    throw error;
+  }
+}
+
+export async function getProfileMetricEntries(
+  metric: ProfileMetricKey,
+): Promise<ProfileMetricEntry[]> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<ProfileSettingRow>(
+    'SELECT key, value FROM profile_settings WHERE key = ?',
+    metricHistorySettingKeys[metric],
+  );
+
+  if (!row?.value) {
+    return [];
+  }
+
+  try {
+    const entries = JSON.parse(row.value) as ProfileMetricEntry[];
+
+    return entries.filter((entry) => entry.metric === metric && entry.value.trim().length > 0);
+  } catch {
+    return [];
+  }
+}
+
+export async function addProfileMetricEntry(
+  metric: ProfileMetricKey,
+  value: string,
+  recordedDate?: string,
+) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  const db = await getDatabase();
+  const entries = await getProfileMetricEntries(metric);
+  const entry: ProfileMetricEntry = {
+    id: `${Date.now()}`,
+    metric,
+    timestamp: buildMetricEntryTimestamp(recordedDate),
+    value: trimmedValue,
+  };
+  const nextEntries = [entry, ...entries];
+
+  await db.runAsync(
+    `
+      INSERT INTO profile_settings (key, value)
+      VALUES (?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value
+    `,
+    metricHistorySettingKeys[metric],
+    JSON.stringify(nextEntries),
+  );
+
+  return entry;
+}
+
+function buildMetricEntryTimestamp(recordedDate?: string) {
+  const now = new Date();
+  const trimmedDate = recordedDate?.trim();
+
+  if (!trimmedDate) {
+    return now.toISOString();
+  }
+
+  const [yearText, monthText, dayText] = trimmedDate.split('-');
+  const year = Number.parseInt(yearText, 10);
+  const month = Number.parseInt(monthText, 10);
+  const day = Number.parseInt(dayText, 10);
+
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) {
+    return now.toISOString();
+  }
+
+  const timestamp = new Date(
+    year,
+    month - 1,
+    day,
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+    now.getMilliseconds(),
+  );
+
+  return Number.isFinite(timestamp.getTime()) ? timestamp.toISOString() : now.toISOString();
 }
 
 // This function stores custom user-created exercises in the same local catalog as base exercises.
