@@ -49,6 +49,8 @@ type TemplateExerciseRow = {
   exerciseId: number;
   exerciseName: string | null;
   muscleGroup: MuscleGroup | null;
+  previousWeight: number | null;
+  previousReps: number | null;
 };
 
 // This row type carries template card metadata from SQLite into WorkoutDashboardData.
@@ -82,7 +84,7 @@ const defaultProfileSettings: ProfileSettings = {
   bodyFatPercentage: '',
   calorieIntake: '',
   theme: 'Auto dark',
-  timerSound: 'David.mp3',
+  timerSound: 'File1.mp3',
   soundEffectsEnabled: false,
 };
 
@@ -404,7 +406,9 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       workout_exercises.workout_id AS workoutId,
       workout_exercises.exercise_id AS exerciseId,
       exercises.name AS exerciseName,
-      exercises.muscle_group AS muscleGroup
+      exercises.muscle_group AS muscleGroup,
+      workout_exercises.previous_weight AS previousWeight,
+      workout_exercises.previous_reps AS previousReps
     FROM workout_exercises
     JOIN workouts
       ON workouts.id = workout_exercises.workout_id
@@ -429,6 +433,8 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       id: exercise.exerciseId,
       muscleGroup: exercise.muscleGroup,
       name: exerciseName,
+      previousReps: exercise.previousReps,
+      previousWeight: exercise.previousWeight,
     });
     exercisesByWorkoutId.set(exercise.workoutId, workoutExercises);
   }
@@ -658,6 +664,7 @@ export async function getWorkoutSummaries() {
     WHERE workouts.is_template = 0
     GROUP BY workouts.id
     ORDER BY workouts.timestamp DESC
+    LIMIT 10
   `);
 }
 

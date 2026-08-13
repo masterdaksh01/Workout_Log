@@ -32,7 +32,7 @@ const emptyProfileSettings: ProfileSettings = {
   bodyFatPercentage: '',
   calorieIntake: '',
   theme: 'dark',
-  timerSound: 'David.mp3',
+  timerSound: 'File1.mp3',
   soundEffectsEnabled: false,
 };
 

@@ -12,5 +12,5 @@ INSERT OR IGNORE INTO profile_settings (key, value) VALUES
   ('weight', ''),
   ('body_fat_percentage', ''),
   ('theme', 'Auto dark'),
-  ('timer_sound', 'David.mp3'),
+  ('timer_sound', 'File1.mp3'),
   ('sound_effects_enabled', '0');

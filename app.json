@@ -13,6 +13,9 @@
     },
     "android": {
       "package": "com.strongretry.app"
-    }
+    },
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }
