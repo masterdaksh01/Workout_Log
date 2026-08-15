@@ -10,7 +10,8 @@ export const sharedStyles = StyleSheet.create({
     paddingVertical: 10,
   },
   buttonDanger: {
-    backgroundColor: '#3b82f6',
+    // Distinct dark-red so destructive actions are visually separate from primary blue
+    backgroundColor: '#991b1b',
   },
   buttonSecondary: {
     backgroundColor: '#2c2c2e',
@@ -25,8 +26,9 @@ export const sharedStyles = StyleSheet.create({
   },
   emptyText: {
     color: '#8e8e93',
-    lineHeight: 20,
+    lineHeight: 22,
     marginTop: 12,
+    textAlign: 'center',
   },
   input: {
     borderColor: '#3a3a3c',
@@ -66,6 +68,7 @@ export const sharedStyles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 22,
     fontWeight: '700',
+    letterSpacing: 0.3,
     marginBottom: 16,
   },
 });

@@ -149,7 +149,11 @@ export function ExercisesScreen({
           <Text style={sharedStyles.emptyText}>No exercises assigned to this muscle group.</Text>
         ) : (
           exercises.map((exercise) => (
-            <View key={exercise.id} style={styles.exerciseRow}>
+            <Pressable
+              key={exercise.id}
+              android_ripple={{ color: 'rgba(255,255,255,0.06)' }}
+              style={styles.exerciseRow}
+            >
               <View style={styles.exerciseText}>
                 <Text style={styles.exerciseName}>{exercise.name}</Text>
               </View>
@@ -160,7 +164,7 @@ export function ExercisesScreen({
               >
                 <Ionicons color="#ffffff" name="information" size={19} />
               </Pressable>
-            </View>
+            </Pressable>
           ))
         )}
       </ScrollView>
@@ -195,6 +199,7 @@ export function ExercisesScreen({
           onPress={() => openExerciseList('All')}
           style={({ pressed }) => [styles.allButton, pressed ? styles.actionButtonPressed : null]}
         >
+          <Ionicons color="#ffffff" name="list" size={14} />
           <Text numberOfLines={1} style={styles.actionButtonText}>
             All
           </Text>
@@ -205,6 +210,7 @@ export function ExercisesScreen({
           onPress={() => openExerciseList('Cardio')}
           style={({ pressed }) => [styles.cardioButton, pressed ? styles.actionButtonPressed : null]}
         >
+          <Ionicons color="#ffffff" name="bicycle" size={14} />
           <Text numberOfLines={1} style={styles.actionButtonText}>
             Cardio
           </Text>
@@ -214,6 +220,7 @@ export function ExercisesScreen({
           onPress={() => setBodyView((current) => (current === 'front' ? 'back' : 'front'))}
           style={styles.rotateButton}
         >
+          <Ionicons color="#ffffff" name="sync" size={16} />
           <Text style={styles.rotateButtonText}>Rotate</Text>
         </Pressable>
       </View>
@@ -250,15 +257,15 @@ export function ExerciseInfoScreen({ exercise, onBack }: ExerciseInfoScreenProps
         </View>
 
         <View style={styles.aboutContent}>
-          <Text style={styles.aboutHeading}>Body part</Text>
+          <Text style={styles.aboutHeading}>BODY PART</Text>
           <Text style={styles.aboutValue}>{exercise.muscleGroup ?? 'Unassigned'}</Text>
 
-          <Text style={styles.aboutHeading}>Category</Text>
+          <Text style={styles.aboutHeading}>CATEGORY</Text>
           <Text style={styles.aboutValue}>
             {exercise.muscleGroup === 'Cardio' ? 'Duration' : 'Weight and reps'}
           </Text>
 
-          <Text style={styles.aboutHeading}>Preferences</Text>
+          <Text style={styles.aboutHeading}>PREFERENCES</Text>
           <Pressable
             onPress={() => setShowRestTimerSettings(true)}
             style={({ pressed }) => [styles.preferenceRow, pressed ? styles.preferenceRowPressed : null]}
@@ -494,9 +501,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     borderRadius: 6,
     bottom: 8,
+    flexDirection: 'row',
+    gap: 4,
     height: 38,
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     position: 'absolute',
     right: 125,
     width: 78,
@@ -508,10 +517,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     borderRadius: 6,
     bottom: 8,
+    flexDirection: 'row',
+    gap: 4,
     height: 38,
     justifyContent: 'center',
     left: 0,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     position: 'absolute',
     right: 0,
     width: 78,
@@ -583,11 +594,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   aboutHeading: {
-    color: '#ffffff',
-    fontSize: 22,
+    color: '#a1a1a6',
+    fontSize: 14,
     fontWeight: '700',
+    letterSpacing: 1,
     marginBottom: 6,
     marginTop: 18,
+    textTransform: 'uppercase',
   },
   aboutValue: {
     color: '#ffffff',
@@ -642,6 +655,8 @@ const styles = StyleSheet.create({
   labelButton: {
     backgroundColor: '#1c1c1e',
     borderColor: '#3a3a3c',
+    borderLeftColor: '#3b82f6',
+    borderLeftWidth: 2,
     borderRadius: 5,
     borderWidth: 1,
     maxWidth: 96,
@@ -658,7 +673,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   leaderDot: {
-    backgroundColor: '#8e8e93',
+    backgroundColor: '#3b82f6',
     borderRadius: 3,
     height: 5,
     position: 'absolute',
@@ -672,13 +687,13 @@ const styles = StyleSheet.create({
     right: -2,
   },
   leaderLine: {
-    backgroundColor: '#8e8e93',
+    backgroundColor: '#3b82f6',
     height: 1,
     position: 'relative',
     width: 22,
   },
   muscleGroupTitle: {
-    color: '#8e8e93',
+    color: '#3b82f6',
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 12,
@@ -748,9 +763,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#3b82f6',
     borderRadius: 6,
     bottom: 8,
+    flexDirection: 'row',
+    gap: 4,
     height: 38,
     justifyContent: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     position: 'absolute',
     right: 6,
     width: 78,
@@ -758,7 +775,7 @@ const styles = StyleSheet.create({
   },
   rotateButtonText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   screen: {
@@ -800,10 +817,12 @@ const styles = StyleSheet.create({
   timerAdjustButton: {
     alignItems: 'center',
     backgroundColor: '#2c2c2e',
-    borderRadius: 6,
-    height: 34,
+    borderColor: '#3a3a3c',
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 40,
     justifyContent: 'center',
-    width: 34,
+    width: 40,
   },
   timerControls: {
     alignItems: 'center',

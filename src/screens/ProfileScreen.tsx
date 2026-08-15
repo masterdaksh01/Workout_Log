@@ -285,6 +285,7 @@ function MetricSummaryRow({ metric, value, onPress }: MetricSummaryRowProps) {
       <Text numberOfLines={1} style={styles.metricSummaryValue}>
         {formatMetricValue(metric, value)}
       </Text>
+      <Ionicons color="#3a3a3c" name="chevron-forward" size={18} />
     </Pressable>
   );
 }
@@ -320,7 +321,7 @@ function MetricDetailScreen({ metric, entries, onAdd, onBack }: MetricDetailScre
       <View style={styles.metricHistoryHeader}>
         <Text style={styles.metricHistoryTitle}>HISTORY</Text>
         <Pressable accessibilityRole="button" onPress={onAdd} hitSlop={12}>
-          <Text style={styles.metricAddText}>+</Text>
+          <Ionicons color="#3b82f6" name="add-circle-outline" size={26} />
         </Pressable>
       </View>
 
@@ -609,7 +610,7 @@ function MetricEntryWindow({
               <Text style={styles.metricEntryHint}>Enter value in {metricUnits[metric]}</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={onClose} hitSlop={12}>
-              <Text style={styles.metricEntryCloseText}>x</Text>
+              <Ionicons color="#d1d5db" name="close" size={24} />
             </Pressable>
           </View>
           <Text style={styles.metricEntryLabel}>Value</Text>
@@ -735,7 +736,7 @@ function ThemeDropdownRow({ label, value, isOpen, onToggle, onSelect }: ThemeDro
         <Text style={styles.rowLabel}>{label}</Text>
         <View style={styles.dropdownValue}>
           <Text style={styles.dropdownValueText}>{formatThemeLabel(value)}</Text>
-          <Text style={styles.dropdownChevron}>{isOpen ? '^' : 'v'}</Text>
+          <Ionicons color="#d1d5db" name={isOpen ? 'chevron-up' : 'chevron-down'} size={16} />
         </View>
       </Pressable>
       {isOpen ? (
@@ -779,11 +780,18 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     backgroundColor: '#1c1c1e',
+    borderBottomColor: 'rgba(59,130,246,0.08)',
+    borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 12,
     minHeight: 74,
     paddingHorizontal: 24,
     paddingTop: 12,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
     color: '#ffffff',
@@ -1237,9 +1245,12 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
   sectionTitle: {
-    color: '#ffffff',
+    borderBottomColor: '#3b82f6',
+    borderBottomWidth: 2,
+    color: '#f5f5f5',
     fontSize: 24,
     fontWeight: '800',
     marginBottom: 14,
+    paddingBottom: 6,
   },
 });

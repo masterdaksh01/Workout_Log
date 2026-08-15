@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
-import { BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
 
 import { getWorkout, getWorkoutSummaries } from '../data/repository';
@@ -13,6 +14,57 @@ type RootTabParamList = {
 // This formatter turns repository timestamps into display text for the History list and detail views.
 function formatTimestamp(timestamp: string) {
   return new Date(timestamp).toLocaleString();
+}
+
+// Animated workout row fades in when it first appears.
+function AnimatedWorkoutRow({
+  workout,
+  index,
+  onPress,
+}: {
+  workout: WorkoutSummary;
+  index: number;
+  onPress: () => void;
+}) {
+  const opacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(16)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 280,
+        delay: index * 50,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 280,
+        delay: index * 50,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, translateY, index]);
+
+  return (
+    <Animated.View style={{ opacity, transform: [{ translateY }] }}>
+      <Pressable
+        onPress={onPress}
+        android_ripple={{ color: 'rgba(59,130,246,0.12)' }}
+        style={styles.workoutRow}
+      >
+        <View style={styles.workoutRowContent}>
+          <View style={styles.workoutRowText}>
+            <Text style={styles.workoutDate}>{formatTimestamp(workout.timestamp)}</Text>
+            <Text style={sharedStyles.smallText}>
+              {workout.exerciseCount} exercises, {workout.setCount} sets
+            </Text>
+          </View>
+          <Ionicons color="#3a3a3c" name="chevron-forward" size={18} />
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
 }
 
 // This screen reads performed workouts from repository.ts and shows either a list or one workout detail.
@@ -62,7 +114,10 @@ export function HistoryScreen() {
           onPress={() => setSelectedWorkout(null)}
           style={[sharedStyles.button, sharedStyles.buttonSecondary, styles.backButton]}
         >
-          <Text style={sharedStyles.buttonTextSecondary}>Back</Text>
+          <View style={styles.backButtonInner}>
+            <Ionicons color="#e5e5ea" name="chevron-back" size={18} />
+            <Text style={sharedStyles.buttonTextSecondary}>Back</Text>
+          </View>
         </Pressable>
 
         <Text style={sharedStyles.title}>{formatTimestamp(selectedWorkout.timestamp)}</Text>
@@ -92,19 +147,18 @@ export function HistoryScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {workouts.length === 0 ? (
-          <Text style={sharedStyles.emptyText}>No workouts saved yet.</Text>
+          <View style={styles.emptyState}>
+            <Ionicons color="#3a3a3c" name="barbell-outline" size={48} />
+            <Text style={sharedStyles.emptyText}>No workouts saved yet.</Text>
+          </View>
         ) : (
-          workouts.map((workout) => (
-            <Pressable
+          workouts.map((workout, index) => (
+            <AnimatedWorkoutRow
               key={workout.id}
+              workout={workout}
+              index={index}
               onPress={() => openWorkout(workout.id)}
-              style={styles.workoutRow}
-            >
-              <Text style={styles.workoutDate}>{formatTimestamp(workout.timestamp)}</Text>
-              <Text style={sharedStyles.smallText}>
-                {workout.exerciseCount} exercises, {workout.setCount} sets
-              </Text>
-            </Pressable>
+            />
           ))
         )}
       </ScrollView>
@@ -118,9 +172,19 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 16,
   },
+  backButtonInner: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
   content: {
     paddingBottom: 24,
     paddingHorizontal: 16,
+  },
+  emptyState: {
+    alignItems: 'center',
+    marginTop: 48,
+    gap: 8,
   },
   exerciseName: {
     color: '#ffffff',
@@ -131,33 +195,44 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     backgroundColor: '#1c1c1e',
+    borderBottomColor: 'rgba(59,130,246,0.08)',
+    borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 12,
     minHeight: 74,
     paddingHorizontal: 24,
     paddingTop: 12,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
     color: '#ffffff',
     fontSize: 28,
     fontWeight: '700',
+    letterSpacing: 0.3,
   },
   screen: {
     backgroundColor: '#000000',
     flex: 1,
   },
   setRow: {
+    borderBottomColor: '#1c1c1e',
+    borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 8,
   },
   setText: {
     color: '#e5e5ea',
-    fontSize: 16,
+    fontSize: 17,
+    letterSpacing: 0.2,
   },
   workoutDate: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '700',
     marginBottom: 4,
   },
@@ -165,5 +240,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#2c2c2e',
     borderBottomWidth: 1,
     paddingVertical: 14,
+  },
+  workoutRowContent: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  workoutRowText: {
+    flex: 1,
   },
 });

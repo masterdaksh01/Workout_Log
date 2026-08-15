@@ -1457,7 +1457,7 @@ function WorkoutTemplateDetailScreen({
           <Ionicons color="#ffffff" name="chevron-back" size={24} />
         </Pressable>
         <Pressable onPress={onToggleMenu} style={styles.detailIconButton}>
-          <Text style={styles.detailMenuText}>...</Text>
+          <Ionicons color="#3b82f6" name="ellipsis-horizontal" size={22} />
         </Pressable>
       </View>
 
@@ -1647,7 +1647,7 @@ function StartedWorkoutExerciseSection({
           <Ionicons color="#3b82f6" name="analytics-outline" size={18} />
         </Pressable>
         <Pressable style={styles.startedMoreButton}>
-          <Text style={styles.startedMoreText}>...</Text>
+          <Ionicons color="#3b82f6" name="ellipsis-horizontal" size={18} />
         </Pressable>
       </View>
 
@@ -1774,7 +1774,12 @@ function StartedRestRow({ set, exerciseKey, activeRestTimer }: StartedRestRowPro
     return (
       <View style={styles.startedRestProgressTrack}>
         <View style={[styles.startedRestProgressFill, { width: `${progress * 100}%` }]} />
-        <Text style={styles.startedRestProgressText}>
+        <Text
+          style={[
+            styles.startedRestProgressText,
+            remainingSeconds <= 10 ? styles.startedRestProgressTextUrgent : null,
+          ]}
+        >
           {formatWorkoutDuration(remainingSeconds)}
         </Text>
       </View>
@@ -1854,7 +1859,7 @@ const FolderSection = memo(function FolderSection({
           </Text>
         </Pressable>
         <Pressable onPress={onToggleFolderMenu} style={styles.folderMenuButton}>
-          <Text style={styles.folderMenuButtonText}>...</Text>
+          <Ionicons color="#a1a1a6" name="ellipsis-horizontal" size={18} />
         </Pressable>
       </View>
 
@@ -1995,7 +2000,7 @@ const WorkoutCard = memo(function WorkoutCard({
       ]}
     >
       <Pressable onPress={onToggleMenu} style={styles.menuButton}>
-        <Text style={styles.menuButtonText}>...</Text>
+        <Ionicons color="#a1a1a6" name="ellipsis-horizontal" size={18} />
       </Pressable>
 
       {menuOpen ? (
@@ -2258,6 +2263,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
+  startedRestProgressTextUrgent: {
+    color: '#f87171',
+    fontWeight: '700',
+  },
   startedAddSetButton: {
     alignItems: 'center',
     marginTop: 4,
@@ -2349,11 +2358,18 @@ const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     backgroundColor: '#1c1c1e',
+    borderBottomColor: 'rgba(59,130,246,0.08)',
+    borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 12,
     minHeight: 74,
     paddingHorizontal: 24,
     paddingTop: 12,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
     color: '#ffffff',
@@ -2656,7 +2672,7 @@ const styles = StyleSheet.create({
   },
   confirmationBackdrop: {
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     flex: 1,
     justifyContent: 'center',
     padding: 20,
