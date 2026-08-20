@@ -143,6 +143,30 @@ function formatWorkoutDuration(totalSeconds: number) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function parseWorkoutDurationInput(value: string) {
+  const trimmedValue = value.trim();
+
+  if (!trimmedValue) {
+    return null;
+  }
+
+  if (trimmedValue.includes(':')) {
+    const [minutesValue, secondsValue = '0'] = trimmedValue.split(':');
+    const minutes = Number.parseInt(minutesValue, 10);
+    const seconds = Number.parseInt(secondsValue, 10);
+
+    if (!Number.isInteger(minutes) || !Number.isInteger(seconds) || seconds < 0 || seconds > 59) {
+      return null;
+    }
+
+    return Math.max(minutes * 60 + seconds, 0);
+  }
+
+  const seconds = Number.parseInt(trimmedValue, 10);
+
+  return Number.isInteger(seconds) && seconds >= 0 ? seconds : null;
+}
+
 function formatPreviousSet(weight: number | null, reps: number | null) {
   if (weight === null || reps === null) {
     return '                  -';
@@ -252,6 +276,7 @@ export function WorkoutScreen() {
   const [exercisesNestedScreenOpen, setExercisesNestedScreenOpen] = useState(false);
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [startedWorkout, setStartedWorkout] = useState<StartedWorkout | null>(null);
+  const [isStartedWorkoutMinimized, setIsStartedWorkoutMinimized] = useState(false);
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
   const [activeRestTimer, setActiveRestTimer] = useState<ActiveRestTimer | null>(null);
   const folderRefs = useRef<Record<number, FolderViewRef | null>>({});
@@ -275,7 +300,10 @@ export function WorkoutScreen() {
     [allWorkouts, selectedWorkoutId],
   );
   const nestedWorkoutScreenOpen = Boolean(
-    selectedWorkoutId || selectedExercise || startedWorkout || exercisesNestedScreenOpen,
+    selectedWorkoutId ||
+    selectedExercise ||
+    (startedWorkout && !isStartedWorkoutMinimized) ||
+    exercisesNestedScreenOpen,
   );
 
   useEffect(() => {
@@ -389,6 +417,7 @@ export function WorkoutScreen() {
             message: 'Cancel this workout? Completed sets will not be saved.',
             onConfirm: async () => {
               setStartedWorkout(null);
+              setIsStartedWorkoutMinimized(false);
               setWorkoutElapsedSeconds(0);
               setActiveRestTimer(null);
               playedRestSoundKeysRef.current.clear();
@@ -626,7 +655,7 @@ export function WorkoutScreen() {
     (
       exerciseKey: string,
       setId: string,
-      changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'completed'>>,
+      changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
     ) => {
       setStartedWorkout((current) => {
         if (!current) {
@@ -738,6 +767,7 @@ export function WorkoutScreen() {
     }
 
     setStartedWorkout(null);
+    setIsStartedWorkoutMinimized(false);
     setWorkoutElapsedSeconds(0);
     setActiveRestTimer(null);
     playedRestSoundKeysRef.current.clear();
@@ -760,6 +790,7 @@ export function WorkoutScreen() {
       message: 'Cancel this workout? Completed sets will not be saved.',
       onConfirm: async () => {
         setStartedWorkout(null);
+        setIsStartedWorkoutMinimized(false);
         setWorkoutElapsedSeconds(0);
         setActiveRestTimer(null);
         playedRestSoundKeysRef.current.clear();
@@ -919,17 +950,18 @@ export function WorkoutScreen() {
     </>
   );
 
-  if (startedWorkout) {
+  if (startedWorkout && !isStartedWorkoutMinimized) {
     return (
       <>
         <StartedWorkoutScreen
           activeRestTimer={activeRestTimer}
           elapsedSeconds={workoutElapsedSeconds}
           onAddSet={handleAddStartedSet}
-          onBack={handleRequestCancelStartedWorkout}
+          onCancel={handleRequestCancelStartedWorkout}
           onChangeSet={updateStartedWorkoutSet}
           onCompleteSet={handleCompleteStartedSet}
           onFinish={handleRequestFinishStartedWorkout}
+          onMinimize={() => setIsStartedWorkoutMinimized(true)}
           workout={startedWorkout}
         />
         {modalLayer}
@@ -971,8 +1003,10 @@ export function WorkoutScreen() {
           }}
           onStartWorkout={() => {
             setDetailMenuOpen(false);
+            setSelectedWorkoutId(null);
             setWorkoutElapsedSeconds(0);
             setActiveRestTimer(null);
+            setIsStartedWorkoutMinimized(false);
             playedRestSoundKeysRef.current.clear();
             setStartedWorkout(createStartedWorkout(selectedWorkout));
           }}
@@ -1051,7 +1085,10 @@ export function WorkoutScreen() {
         <FlatList
           ListFooterComponent={dashboardFooter}
           ListHeaderComponent={dashboardHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            startedWorkout && isStartedWorkoutMinimized ? styles.listContentWithMiniWorkout : null,
+          ]}
           data={dashboardData.folders}
           extraData={{ expandedFolderIds, folderMenuId, menuTemplateId }}
           keyExtractor={(folder) => String(folder.id)}
@@ -1070,6 +1107,13 @@ export function WorkoutScreen() {
           onNestedOpenChange={setExercisesNestedScreenOpen}
         />
       </View>
+      {startedWorkout && isStartedWorkoutMinimized ? (
+        <MinimizedStartedWorkoutBar
+          elapsedSeconds={workoutElapsedSeconds}
+          onExpand={() => setIsStartedWorkoutMinimized(false)}
+          workoutName={startedWorkout.name}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1147,11 +1191,7 @@ function DeleteConfirmationModal({
             </Pressable>
             <Pressable
               onPress={onConfirm}
-              style={[
-                sharedStyles.button,
-                confirmation?.destructive === false ? null : sharedStyles.buttonDanger,
-                styles.modalButton,
-              ]}
+              style={[sharedStyles.button, styles.modalButton]}
             >
               <Text style={sharedStyles.buttonText}>{confirmation?.confirmLabel ?? 'Delete'}</Text>
             </Pressable>
@@ -1543,14 +1583,15 @@ type StartedWorkoutScreenProps = {
   workout: StartedWorkout;
   elapsedSeconds: number;
   activeRestTimer: ActiveRestTimer | null;
-  onBack: () => void;
+  onCancel: () => void;
   onFinish: () => void;
+  onMinimize: () => void;
   onAddSet: (exerciseKey: string) => void;
   onCompleteSet: (exerciseKey: string, set: StartedWorkoutSet) => void;
   onChangeSet: (
     exerciseKey: string,
     setId: string,
-    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'completed'>>,
+    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
 };
 
@@ -1558,8 +1599,9 @@ function StartedWorkoutScreen({
   workout,
   elapsedSeconds,
   activeRestTimer,
-  onBack,
+  onCancel,
   onFinish,
+  onMinimize,
   onAddSet,
   onCompleteSet,
   onChangeSet,
@@ -1567,12 +1609,9 @@ function StartedWorkoutScreen({
   return (
     <View style={styles.startedScreen}>
       <View style={styles.startedTopBar}>
-        <Pressable onPress={onBack} style={styles.startedIconButton}>
+        <Pressable onPress={onMinimize} style={styles.startedIconButton}>
           <Ionicons color="#ffffff" name="chevron-down" size={22} />
         </Pressable>
-        <View style={styles.startedTimerBadge}>
-          <Ionicons color="#ffffff" name="timer-outline" size={18} />
-        </View>
         <Text style={styles.startedElapsed}>{formatWorkoutDuration(elapsedSeconds)}</Text>
         <Pressable onPress={onFinish} style={styles.startedFinishButton}>
           <Text style={styles.startedFinishText}>FINISH</Text>
@@ -1585,7 +1624,7 @@ function StartedWorkoutScreen({
             <Pressable style={styles.startedAddExerciseButton}>
               <Text style={styles.startedAddExerciseText}>ADD EXERCISE</Text>
             </Pressable>
-            <Pressable onPress={onBack} style={styles.startedCancelButton}>
+            <Pressable onPress={onCancel} style={styles.startedCancelButton}>
               <Text style={styles.startedCancelText}>CANCEL WORKOUT</Text>
             </Pressable>
           </View>
@@ -1626,7 +1665,7 @@ type StartedWorkoutExerciseSectionProps = {
   onCompleteSet: (set: StartedWorkoutSet) => void;
   onChangeSet: (
     setId: string,
-    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'completed'>>,
+    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
 };
 
@@ -1673,6 +1712,7 @@ function StartedWorkoutExerciseSection({
           <StartedRestRow
             activeRestTimer={activeRestTimer}
             exerciseKey={exercise.key}
+            onChangeSet={onChangeSet}
             set={set}
           />
         </View>
@@ -1694,7 +1734,7 @@ type StartedWorkoutSetRowProps = {
   onComplete: () => void;
   onChangeSet: (
     setId: string,
-    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'completed'>>,
+    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
 };
 
@@ -1760,9 +1800,14 @@ type StartedRestRowProps = {
   set: StartedWorkoutSet;
   exerciseKey: string;
   activeRestTimer: ActiveRestTimer | null;
+  onChangeSet: (
+    setId: string,
+    changes: Partial<Pick<StartedWorkoutSet, 'restSeconds'>>,
+  ) => void;
 };
 
-function StartedRestRow({ set, exerciseKey, activeRestTimer }: StartedRestRowProps) {
+function StartedRestRow({ set, exerciseKey, activeRestTimer, onChangeSet }: StartedRestRowProps) {
+  const [editingValue, setEditingValue] = useState<string | null>(null);
   const isActiveRest =
     activeRestTimer?.exerciseKey === exerciseKey && activeRestTimer.setId === set.id;
   const remainingSeconds = isActiveRest ? activeRestTimer.remaining : set.restSeconds;
@@ -1786,12 +1831,65 @@ function StartedRestRow({ set, exerciseKey, activeRestTimer }: StartedRestRowPro
     );
   }
 
+  function commitRestSeconds() {
+    if (editingValue === null) {
+      return;
+    }
+
+    const parsedSeconds = parseWorkoutDurationInput(editingValue);
+
+    if (parsedSeconds !== null) {
+      onChangeSet(set.id, { restSeconds: parsedSeconds });
+    }
+
+    setEditingValue(null);
+  }
+
   return (
     <View style={styles.startedRestLineRow}>
       <View style={styles.startedRestLine} />
-      <Text style={styles.startedRestLineText}>{formatWorkoutDuration(remainingSeconds)}</Text>
+      {editingValue !== null && !isActiveRest ? (
+        <TextInput
+          autoFocus
+          keyboardType="numbers-and-punctuation"
+          onBlur={commitRestSeconds}
+          onChangeText={setEditingValue}
+          onSubmitEditing={commitRestSeconds}
+          selectTextOnFocus
+          style={styles.startedRestLineInput}
+          value={editingValue}
+        />
+      ) : (
+        <Pressable
+          disabled={isActiveRest}
+          onPress={() => setEditingValue(formatWorkoutDuration(set.restSeconds))}
+        >
+          <Text style={styles.startedRestLineText}>{formatWorkoutDuration(remainingSeconds)}</Text>
+        </Pressable>
+      )}
       <View style={styles.startedRestLine} />
     </View>
+  );
+}
+
+type MinimizedStartedWorkoutBarProps = {
+  workoutName: string;
+  elapsedSeconds: number;
+  onExpand: () => void;
+};
+
+function MinimizedStartedWorkoutBar({
+  workoutName,
+  elapsedSeconds,
+  onExpand,
+}: MinimizedStartedWorkoutBarProps) {
+  return (
+    <Pressable onPress={onExpand} style={styles.minimizedWorkoutBar}>
+      <Text numberOfLines={1} style={styles.minimizedWorkoutTitle}>
+        {workoutName}
+      </Text>
+      <Text style={styles.minimizedWorkoutTime}>{formatWorkoutDuration(elapsedSeconds)}</Text>
+    </Pressable>
   );
 }
 
@@ -2051,14 +2149,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     width: 34,
   },
-  startedTimerBadge: {
-    alignItems: 'center',
-    backgroundColor: '#2c2c2e',
-    borderRadius: 6,
-    height: 34,
-    justifyContent: 'center',
-    width: 34,
-  },
   startedElapsed: {
     color: '#e5e5ea',
     flex: 1,
@@ -2243,6 +2333,19 @@ const styles = StyleSheet.create({
     minWidth: 48,
     textAlign: 'center',
   },
+  startedRestLineInput: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#3b82f6',
+    borderRadius: 6,
+    borderWidth: 1,
+    color: '#ffffff',
+    fontSize: 14,
+    minHeight: 30,
+    minWidth: 58,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    textAlign: 'center',
+  },
   startedRestProgressTrack: {
     backgroundColor: '#1c1c1e',
     borderRadius: 6,
@@ -2299,7 +2402,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   startedCancelText: {
-    color: '#ff5d73',
+    color: '#3b82f6',
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0,
@@ -2642,6 +2745,9 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 30,
   },
+  listContentWithMiniWorkout: {
+    paddingBottom: 90,
+  },
   menuButton: {
     alignItems: 'center',
     height: 32,
@@ -2698,6 +2804,35 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     marginBottom: 18,
+  },
+  minimizedWorkoutBar: {
+    alignItems: 'center',
+    backgroundColor: '#1c1c1e',
+    borderTopColor: '#2c2c2e',
+    borderTopWidth: 1,
+    bottom: 0,
+    elevation: 8,
+    justifyContent: 'center',
+    left: 0,
+    minHeight: 52,
+    paddingHorizontal: 72,
+    position: 'absolute',
+    right: 0,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  minimizedWorkoutTime: {
+    color: '#c7c7cc',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  minimizedWorkoutTitle: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: '800',
+    textAlign: 'center',
   },
   myWorkoutsSection: {
     minHeight: 64,
