@@ -86,6 +86,8 @@ type StartedWorkoutExercise = {
   key: string;
   exerciseId: number;
   name: string;
+  note: string;
+  noteOpen: boolean;
   sets: StartedWorkoutSet[];
 };
 type StartedWorkout = {
@@ -93,14 +95,6 @@ type StartedWorkout = {
   name: string;
   exercises: StartedWorkoutExercise[];
 };
-type OptionalAssetContext = {
-  keys: () => string[];
-  (key: string): number;
-};
-type RequireWithContext = typeof require & {
-  context?: (directory: string, useSubdirectories: boolean, regExp: RegExp) => OptionalAssetContext;
-};
-
 // This empty value lets WorkoutScreen render before repository.ts returns dashboard data.
 const emptyDashboardData: WorkoutDashboardData = {
   folders: [],
@@ -110,7 +104,12 @@ const emptyDashboardData: WorkoutDashboardData = {
 const folderIcon = require('../assets/folder-icon.png');
 const defaultRestSeconds = 90;
 const firstSetRestSeconds = 75;
-const timerSoundFileNames = ['./File1.mp3', './File2.mp3', './File3.mp3'] as const;
+const timerSoundModules = [
+  require('../assets/File1.mpeg'),
+  require('../assets/File2.mpeg'),
+  require('../assets/File3.mpeg'),
+] as const;
+const setSwipeDeleteDistance = 90;
 
 // This formatter prepares the future last-performed value shown on workout template cards.
 function formatLastPerformed(timestamp: string | null) {
@@ -187,6 +186,8 @@ function createStartedWorkout(workout: WorkoutTemplate): StartedWorkout {
         exerciseId: exercise.id,
         key: `${exercise.id}-${exerciseIndex}`,
         name: exercise.name,
+        note: '',
+        noteOpen: false,
         sets: [1, 2].map((setNumber) => ({
           completed: false,
           id: `${exercise.id}-${exerciseIndex}-${setNumber}`,
@@ -209,28 +210,9 @@ function parseSetNumber(value: string) {
 }
 
 function getOptionalTimerSoundModule() {
-  try {
-    const requireWithContext = require as RequireWithContext;
-    const assetContext = requireWithContext.context?.('../assets', false, /^\.\/File[1-3]\.mp3$/);
+  const randomIndex = Math.floor(Math.random() * timerSoundModules.length);
 
-    if (!assetContext) {
-      return null;
-    }
-
-    const availableSoundFileNames = timerSoundFileNames.filter((fileName) =>
-      assetContext.keys().includes(fileName),
-    );
-
-    if (availableSoundFileNames.length === 0) {
-      return null;
-    }
-
-    const randomIndex = Math.floor(Math.random() * availableSoundFileNames.length);
-
-    return assetContext(availableSoundFileNames[randomIndex]);
-  } catch {
-    return null;
-  }
+  return timerSoundModules[randomIndex] ?? null;
 }
 
 function playTimerFinishedSound() {
@@ -276,6 +258,7 @@ export function WorkoutScreen() {
   const [exercisesNestedScreenOpen, setExercisesNestedScreenOpen] = useState(false);
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [startedWorkout, setStartedWorkout] = useState<StartedWorkout | null>(null);
+  const [startedExerciseMenuKey, setStartedExerciseMenuKey] = useState<string | null>(null);
   const [isStartedWorkoutMinimized, setIsStartedWorkoutMinimized] = useState(false);
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
   const [activeRestTimer, setActiveRestTimer] = useState<ActiveRestTimer | null>(null);
@@ -411,6 +394,11 @@ export function WorkoutScreen() {
           return true;
         }
 
+        if (startedExerciseMenuKey) {
+          setStartedExerciseMenuKey(null);
+          return true;
+        }
+
         if (startedWorkout) {
           setDeleteConfirmation({
             confirmLabel: 'Discard',
@@ -461,6 +449,7 @@ export function WorkoutScreen() {
       selectedExercise,
       selectedWorkoutId,
       startedWorkout,
+      startedExerciseMenuKey,
     ]),
   );
 
@@ -719,6 +708,97 @@ export function WorkoutScreen() {
     });
   }, []);
 
+  const handleDeleteStartedSet = useCallback((exerciseKey: string, setId: string) => {
+    setStartedWorkout((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: current.exercises.map((exercise) => {
+          if (exercise.key !== exerciseKey) {
+            return exercise;
+          }
+
+          return {
+            ...exercise,
+            sets: exercise.sets
+              .filter((set) => set.id !== setId)
+              .map((set, index) => ({ ...set, setNumber: index + 1 })),
+          };
+        }),
+      };
+    });
+    setActiveRestTimer((current) =>
+      current?.exerciseKey === exerciseKey && current.setId === setId ? null : current,
+    );
+    playedRestSoundKeysRef.current.delete(`${exerciseKey}-${setId}`);
+  }, []);
+
+  const handleRemoveStartedExercise = useCallback((exerciseKey: string) => {
+    setStartedExerciseMenuKey(null);
+    setStartedWorkout((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: current.exercises.filter((exercise) => exercise.key !== exerciseKey),
+      };
+    });
+    setActiveRestTimer((current) => (current?.exerciseKey === exerciseKey ? null : current));
+  }, []);
+
+  const updateStartedExerciseNote = useCallback((exerciseKey: string, note: string) => {
+    setStartedWorkout((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: current.exercises.map((exercise) =>
+          exercise.key === exerciseKey ? { ...exercise, note } : exercise,
+        ),
+      };
+    });
+  }, []);
+
+  const openStartedExerciseNote = useCallback((exerciseKey: string) => {
+    setStartedExerciseMenuKey(null);
+    setStartedWorkout((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: current.exercises.map((exercise) =>
+          exercise.key === exerciseKey ? { ...exercise, noteOpen: true } : exercise,
+        ),
+      };
+    });
+  }, []);
+
+  const closeEmptyStartedExerciseNote = useCallback((exerciseKey: string) => {
+    setStartedWorkout((current) => {
+      if (!current) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: current.exercises.map((exercise) =>
+          exercise.key === exerciseKey && !exercise.note.trim()
+            ? { ...exercise, noteOpen: false }
+            : exercise,
+        ),
+      };
+    });
+  }, []);
+
   const handleCompleteStartedSet = useCallback(
     (exerciseKey: string, set: StartedWorkoutSet) => {
       if (set.completed) {
@@ -960,8 +1040,23 @@ export function WorkoutScreen() {
           onCancel={handleRequestCancelStartedWorkout}
           onChangeSet={updateStartedWorkoutSet}
           onCompleteSet={handleCompleteStartedSet}
+          onDeleteSet={handleDeleteStartedSet}
           onFinish={handleRequestFinishStartedWorkout}
           onMinimize={() => setIsStartedWorkoutMinimized(true)}
+          onAddNote={openStartedExerciseNote}
+          onChangeExerciseNote={updateStartedExerciseNote}
+          onCloseEmptyExerciseNote={closeEmptyStartedExerciseNote}
+          onRemoveExercise={handleRemoveStartedExercise}
+          onReplaceExercise={() => {
+            setStartedExerciseMenuKey(null);
+            Alert.alert('Replace exercise', 'Exercise replacement will be added later.');
+          }}
+          onToggleExerciseMenu={(exerciseKey) =>
+            setStartedExerciseMenuKey((current) =>
+              current === exerciseKey ? null : exerciseKey,
+            )
+          }
+          startedExerciseMenuKey={startedExerciseMenuKey}
           workout={startedWorkout}
         />
         {modalLayer}
@@ -1588,11 +1683,19 @@ type StartedWorkoutScreenProps = {
   onMinimize: () => void;
   onAddSet: (exerciseKey: string) => void;
   onCompleteSet: (exerciseKey: string, set: StartedWorkoutSet) => void;
+  onDeleteSet: (exerciseKey: string, setId: string) => void;
+  onAddNote: (exerciseKey: string) => void;
+  onChangeExerciseNote: (exerciseKey: string, note: string) => void;
+  onCloseEmptyExerciseNote: (exerciseKey: string) => void;
+  onRemoveExercise: (exerciseKey: string) => void;
+  onReplaceExercise: () => void;
+  onToggleExerciseMenu: (exerciseKey: string) => void;
   onChangeSet: (
     exerciseKey: string,
     setId: string,
     changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
+  startedExerciseMenuKey: string | null;
 };
 
 function StartedWorkoutScreen({
@@ -1604,7 +1707,15 @@ function StartedWorkoutScreen({
   onMinimize,
   onAddSet,
   onCompleteSet,
+  onDeleteSet,
+  onAddNote,
+  onChangeExerciseNote,
+  onCloseEmptyExerciseNote,
+  onRemoveExercise,
+  onReplaceExercise,
+  onToggleExerciseMenu,
   onChangeSet,
+  startedExerciseMenuKey,
 }: StartedWorkoutScreenProps) {
   return (
     <View style={styles.startedScreen}>
@@ -1648,9 +1759,17 @@ function StartedWorkoutScreen({
           <StartedWorkoutExerciseSection
             activeRestTimer={activeRestTimer}
             exercise={item}
+            menuOpen={startedExerciseMenuKey === item.key}
             onAddSet={() => onAddSet(item.key)}
+            onAddNote={() => onAddNote(item.key)}
+            onChangeNote={(note) => onChangeExerciseNote(item.key, note)}
             onChangeSet={(setId, changes) => onChangeSet(item.key, setId, changes)}
+            onCloseEmptyNote={() => onCloseEmptyExerciseNote(item.key)}
             onCompleteSet={(set) => onCompleteSet(item.key, set)}
+            onDeleteSet={(setId) => onDeleteSet(item.key, setId)}
+            onRemoveExercise={() => onRemoveExercise(item.key)}
+            onReplaceExercise={onReplaceExercise}
+            onToggleMenu={() => onToggleExerciseMenu(item.key)}
           />
         )}
       />
@@ -1661,8 +1780,16 @@ function StartedWorkoutScreen({
 type StartedWorkoutExerciseSectionProps = {
   exercise: StartedWorkoutExercise;
   activeRestTimer: ActiveRestTimer | null;
+  menuOpen: boolean;
   onAddSet: () => void;
+  onAddNote: () => void;
+  onChangeNote: (note: string) => void;
+  onCloseEmptyNote: () => void;
   onCompleteSet: (set: StartedWorkoutSet) => void;
+  onDeleteSet: (setId: string) => void;
+  onRemoveExercise: () => void;
+  onReplaceExercise: () => void;
+  onToggleMenu: () => void;
   onChangeSet: (
     setId: string,
     changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
@@ -1672,10 +1799,20 @@ type StartedWorkoutExerciseSectionProps = {
 function StartedWorkoutExerciseSection({
   exercise,
   activeRestTimer,
+  menuOpen,
   onAddSet,
+  onAddNote,
+  onChangeNote,
+  onCloseEmptyNote,
   onCompleteSet,
+  onDeleteSet,
+  onRemoveExercise,
+  onReplaceExercise,
+  onToggleMenu,
   onChangeSet,
 }: StartedWorkoutExerciseSectionProps) {
+  const showNote = exercise.noteOpen || exercise.note.trim().length > 0;
+
   return (
     <View style={styles.startedExerciseSection}>
       <View style={styles.startedExerciseHeader}>
@@ -1685,10 +1822,26 @@ function StartedWorkoutExerciseSection({
         <Pressable style={styles.startedGraphButton}>
           <Ionicons color="#3b82f6" name="analytics-outline" size={18} />
         </Pressable>
-        <Pressable style={styles.startedMoreButton}>
+        <Pressable onPress={onToggleMenu} style={styles.startedMoreButton}>
           <Ionicons color="#3b82f6" name="ellipsis-horizontal" size={18} />
         </Pressable>
       </View>
+
+      {menuOpen ? (
+        <View style={styles.startedExerciseMenu}>
+          <Pressable onPress={onRemoveExercise} style={styles.startedExerciseMenuItem}>
+            <Text style={[styles.startedExerciseMenuText, styles.destructiveMenuText]}>
+              Remove Exercise
+            </Text>
+          </Pressable>
+          <Pressable onPress={onReplaceExercise} style={styles.startedExerciseMenuItem}>
+            <Text style={styles.startedExerciseMenuText}>Replace Exercise</Text>
+          </Pressable>
+          <Pressable onPress={onAddNote} style={styles.startedExerciseMenuItem}>
+            <Text style={styles.startedExerciseMenuText}>Add Note</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <View style={styles.startedSetHeader}>
         <Text style={[styles.startedSetHeaderText, styles.startedSetColumn]}>SET</Text>
@@ -1700,6 +1853,18 @@ function StartedWorkoutExerciseSection({
         </View>
       </View>
 
+      {showNote ? (
+        <TextInput
+          multiline
+          onBlur={onCloseEmptyNote}
+          onChangeText={onChangeNote}
+          placeholder="Write a note"
+          placeholderTextColor="#c7c7cc"
+          style={styles.startedExerciseNoteInput}
+          value={exercise.note}
+        />
+      ) : null}
+
       {exercise.sets.map((set) => (
         <View key={set.id}>
           <StartedWorkoutSetRow
@@ -1707,6 +1872,7 @@ function StartedWorkoutExerciseSection({
             exerciseKey={exercise.key}
             onChangeSet={onChangeSet}
             onComplete={() => onCompleteSet(set)}
+            onDelete={() => onDeleteSet(set.id)}
             set={set}
           />
           <StartedRestRow
@@ -1732,6 +1898,7 @@ type StartedWorkoutSetRowProps = {
   exerciseKey: string;
   activeRestTimer: ActiveRestTimer | null;
   onComplete: () => void;
+  onDelete: () => void;
   onChangeSet: (
     setId: string,
     changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
@@ -1743,13 +1910,28 @@ function StartedWorkoutSetRow({
   exerciseKey,
   activeRestTimer,
   onComplete,
+  onDelete,
   onChangeSet,
 }: StartedWorkoutSetRowProps) {
   const isActiveRest =
     activeRestTimer?.exerciseKey === exerciseKey && activeRestTimer.setId === set.id;
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gesture) =>
+          gesture.dx > 30 && Math.abs(gesture.dy) < 18,
+        onPanResponderRelease: (_event, gesture) => {
+          if (gesture.dx >= setSwipeDeleteDistance) {
+            onDelete();
+          }
+        },
+      }),
+    [onDelete],
+  );
 
   return (
     <View
+      {...panResponder.panHandlers}
       style={[
         styles.startedSetRow,
         set.completed ? styles.startedSetRowCompleted : null,
@@ -1819,12 +2001,7 @@ function StartedRestRow({ set, exerciseKey, activeRestTimer, onChangeSet }: Star
     return (
       <View style={styles.startedRestProgressTrack}>
         <View style={[styles.startedRestProgressFill, { width: `${progress * 100}%` }]} />
-        <Text
-          style={[
-            styles.startedRestProgressText,
-            remainingSeconds <= 10 ? styles.startedRestProgressTextUrgent : null,
-          ]}
-        >
+        <Text style={styles.startedRestProgressText}>
           {formatWorkoutDuration(remainingSeconds)}
         </Text>
       </View>
@@ -1851,7 +2028,7 @@ function StartedRestRow({ set, exerciseKey, activeRestTimer, onChangeSet }: Star
       {editingValue !== null && !isActiveRest ? (
         <TextInput
           autoFocus
-          keyboardType="numbers-and-punctuation"
+          keyboardType="number-pad"
           onBlur={commitRestSeconds}
           onChangeText={setEditingValue}
           onSubmitEditing={commitRestSeconds}
@@ -2198,6 +2375,7 @@ const styles = StyleSheet.create({
   startedExerciseSection: {
     paddingHorizontal: 16,
     paddingTop: 18,
+    position: 'relative',
   },
   startedExerciseHeader: {
     alignItems: 'center',
@@ -2232,6 +2410,42 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 18,
+  },
+  startedExerciseMenu: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#2c2c2e',
+    borderRadius: 6,
+    borderWidth: 1,
+    elevation: 5,
+    position: 'absolute',
+    right: 16,
+    top: 52,
+    width: 168,
+    zIndex: 8,
+  },
+  startedExerciseMenuItem: {
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+  },
+  startedExerciseMenuText: {
+    color: '#ffffff',
+    fontSize: 15,
+  },
+  destructiveMenuText: {
+    color: '#ff453a',
+  },
+  startedExerciseNoteInput: {
+    backgroundColor: '#3a4447',
+    borderColor: '#3a4447',
+    borderRadius: 6,
+    borderWidth: 1,
+    color: '#ffffff',
+    fontSize: 18,
+    marginBottom: 12,
+    minHeight: 54,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    textAlignVertical: 'top',
   },
   startedSetHeader: {
     alignItems: 'center',
@@ -2365,10 +2579,6 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     textAlign: 'center',
-  },
-  startedRestProgressTextUrgent: {
-    color: '#f87171',
-    fontWeight: '700',
   },
   startedAddSetButton: {
     alignItems: 'center',
