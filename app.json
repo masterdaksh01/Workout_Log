@@ -4,7 +4,13 @@
     "slug": "strong-retry",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
     "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./src/assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1c1c1e"
+    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -12,7 +18,11 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.strongretry.app"
+      "package": "com.strongretry.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/icon.png",
+        "backgroundColor": "#1c1c1e"
+      }
     },
     "plugins": [
       "expo-audio"

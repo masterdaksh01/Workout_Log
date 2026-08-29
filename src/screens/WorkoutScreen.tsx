@@ -2329,85 +2329,133 @@ function StartedWorkoutSetRow({
 }: StartedWorkoutSetRowProps) {
   const isActiveRest =
     activeRestTimer?.exerciseKey === exerciseKey && activeRestTimer.setId === set.id;
+  const translateX = useRef(new Animated.Value(0)).current;
+  const opacity = translateX.interpolate({
+    inputRange: [0, setSwipeDeleteDistance],
+    outputRange: [1, 0.25],
+    extrapolate: 'clamp',
+  });
+  const trashOpacity = translateX.interpolate({
+    inputRange: [20, setSwipeDeleteDistance],
+    outputRange: [0, 1],
+    extrapolate: 'clamp',
+  });
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
         onMoveShouldSetPanResponder: (_event, gesture) =>
-          gesture.dx > 30 && Math.abs(gesture.dy) < 18,
+          gesture.dx > 12 && Math.abs(gesture.dy) < 18,
+        onPanResponderMove: (_event, gesture) => {
+          const clamped = Math.max(0, Math.min(gesture.dx, setSwipeDeleteDistance * 1.1));
+          translateX.setValue(clamped);
+        },
         onPanResponderRelease: (_event, gesture) => {
           if (gesture.dx >= setSwipeDeleteDistance) {
-            onDelete();
+            Animated.spring(translateX, {
+              toValue: setSwipeDeleteDistance * 1.5,
+              useNativeDriver: true,
+              speed: 40,
+              bounciness: 0,
+            }).start(() => {
+              onDelete();
+              translateX.setValue(0);
+            });
+          } else {
+            Animated.spring(translateX, {
+              toValue: 0,
+              useNativeDriver: true,
+              speed: 20,
+              bounciness: 8,
+            }).start();
           }
         },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            speed: 20,
+            bounciness: 8,
+          }).start();
+        },
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onDelete],
   );
 
   return (
-    <View
-      {...panResponder.panHandlers}
-      style={[
-        styles.startedSetRow,
-        set.completed ? styles.startedSetRowCompleted : null,
-        isActiveRest ? styles.startedSetRowResting : null,
-      ]}
-    >
-      <Text style={[styles.startedSetText, styles.startedSetColumn]}>{set.setNumber}</Text>
-      <Text
-        numberOfLines={1}
-        style={[
-          styles.startedPreviousText,
-          styles.startedPreviousColumn,
-          set.completed ? styles.startedCompletedPreviousText : null,
-        ]}
-      >
-        {isCardio ? formatPreviousCardioSet(set.previousReps) : formatPreviousSet(set.previousWeight, set.previousReps)}
-      </Text>
-      {isCardio ? (
-        <TextInput
-          keyboardType="numbers-and-punctuation"
-          onBlur={() => {
-            const duration = formatCardioDurationInput(set.duration);
+    <View style={styles.startedSetRowWrapper}>
+      {/* Red delete backdrop revealed as row slides right */}
+      <Animated.View style={[styles.startedSetDeleteBackdrop, { opacity: trashOpacity }]}>
+        <Ionicons color="#ffffff" name="trash-outline" size={20} />
+      </Animated.View>
 
-            if (duration !== null) {
-              onChangeSet(set.id, { duration });
-            }
-          }}
-          onChangeText={(duration) => onChangeSet(set.id, { duration })}
-          placeholder="0:00"
-          placeholderTextColor="#8e8e93"
-          style={[styles.startedSetInput, styles.startedTimeInputColumn]}
-          value={set.duration}
-        />
-      ) : (
-        <>
-          <TextInput
-            keyboardType="numeric"
-            onChangeText={(weight) => onChangeSet(set.id, { weight })}
-            style={[styles.startedSetInput, styles.startedInputColumn]}
-            value={set.weight}
-          />
-          <TextInput
-            keyboardType="number-pad"
-            onChangeText={(reps) => onChangeSet(set.id, { reps })}
-            style={[styles.startedSetInput, styles.startedInputColumn]}
-            value={set.reps}
-          />
-        </>
-      )}
-      <Pressable
-        onPress={onComplete}
+      <Animated.View
+        {...panResponder.panHandlers}
         style={[
-          styles.startedCheckButton,
-          set.completed ? styles.startedCheckButtonComplete : null,
+          styles.startedSetRow,
+          set.completed ? styles.startedSetRowCompleted : null,
+          isActiveRest ? styles.startedSetRowResting : null,
+          { transform: [{ translateX }], opacity },
         ]}
       >
-        <Ionicons
-          color={set.completed ? '#ffffff' : '#9ca3a6'}
-          name="checkmark"
-          size={20}
-        />
-      </Pressable>
+        <Text style={[styles.startedSetText, styles.startedSetColumn]}>{set.setNumber}</Text>
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.startedPreviousText,
+            styles.startedPreviousColumn,
+            set.completed ? styles.startedCompletedPreviousText : null,
+          ]}
+        >
+          {isCardio ? formatPreviousCardioSet(set.previousReps) : formatPreviousSet(set.previousWeight, set.previousReps)}
+        </Text>
+        {isCardio ? (
+          <TextInput
+            keyboardType="numbers-and-punctuation"
+            onBlur={() => {
+              const duration = formatCardioDurationInput(set.duration);
+
+              if (duration !== null) {
+                onChangeSet(set.id, { duration });
+              }
+            }}
+            onChangeText={(duration) => onChangeSet(set.id, { duration })}
+            placeholder="0:00"
+            placeholderTextColor="#8e8e93"
+            style={[styles.startedSetInput, styles.startedTimeInputColumn]}
+            value={set.duration}
+          />
+        ) : (
+          <>
+            <TextInput
+              keyboardType="numeric"
+              onChangeText={(weight) => onChangeSet(set.id, { weight })}
+              style={[styles.startedSetInput, styles.startedInputColumn]}
+              value={set.weight}
+            />
+            <TextInput
+              keyboardType="number-pad"
+              onChangeText={(reps) => onChangeSet(set.id, { reps })}
+              style={[styles.startedSetInput, styles.startedInputColumn]}
+              value={set.reps}
+            />
+          </>
+        )}
+        <Pressable
+          onPress={onComplete}
+          style={[
+            styles.startedCheckButton,
+            set.completed ? styles.startedCheckButtonComplete : null,
+          ]}
+        >
+          <Ionicons
+            color={set.completed ? '#ffffff' : '#9ca3a6'}
+            name="checkmark"
+            size={20}
+          />
+        </Pressable>
+      </Animated.View>
     </View>
   );
 }
@@ -3563,6 +3611,20 @@ const styles = StyleSheet.create({
   },
   topTabTextActive: {
     color: '#fff',
+  },
+  startedSetRowWrapper: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  startedSetDeleteBackdrop: {
+    alignItems: 'center',
+    backgroundColor: '#ef4444',
+    bottom: 0,
+    justifyContent: 'center',
+    left: 0,
+    position: 'absolute',
+    top: 0,
+    width: 72,
   },
   workoutCard: {
     backgroundColor: '#1c1c1e',
