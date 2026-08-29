@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, BackHandler, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, type NavigationProp } from '@react-navigation/native';
@@ -11,9 +11,87 @@ type RootTabParamList = {
   Workout: { initialTopTab?: 'routines' | 'exercises' } | undefined;
 };
 
-// This formatter turns repository timestamps into display text for the History list and detail views.
+type WorkoutMonthGroup = {
+  key: string;
+  label: string;
+  workouts: WorkoutSummary[];
+};
+
+// This formatter turns repository timestamps into display text for detail views.
 function formatTimestamp(timestamp: string) {
   return new Date(timestamp).toLocaleString();
+}
+
+function formatHistoryTimestamp(timestamp: string) {
+  const date = new Date(timestamp);
+  const datePart = date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    weekday: 'long',
+    year: 'numeric',
+  });
+  const timePart = date
+    .toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+    .toLowerCase();
+
+  return `${datePart} at ${timePart}`;
+}
+
+function formatMonthLabel(timestamp: string) {
+  return new Date(timestamp).toLocaleDateString('en-US', { month: 'long' });
+}
+
+function formatWorkoutDuration(totalSeconds: number | null) {
+  if (totalSeconds === null) {
+    return '--';
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.max(Math.round((totalSeconds % 3600) / 60), 0);
+
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+
+  return `${minutes}m`;
+}
+
+function formatTotalWeight(totalWeight: number) {
+  const roundedWeight = Math.round(totalWeight);
+
+  return `${roundedWeight.toLocaleString('en-US')} kg`;
+}
+
+function getWorkoutTitle(workout: WorkoutSummary | WorkoutDetail) {
+  return workout.name?.trim() || `Workout ${workout.id}`;
+}
+
+function groupWorkoutsByMonth(workouts: WorkoutSummary[]) {
+  const groups: WorkoutMonthGroup[] = [];
+  const groupByKey = new Map<string, WorkoutMonthGroup>();
+
+  for (const workout of workouts) {
+    const date = new Date(workout.timestamp);
+    const key = `${date.getFullYear()}-${date.getMonth()}`;
+    let group = groupByKey.get(key);
+
+    if (!group) {
+      group = {
+        key,
+        label: formatMonthLabel(workout.timestamp),
+        workouts: [],
+      };
+      groupByKey.set(key, group);
+      groups.push(group);
+    }
+
+    group.workouts.push(workout);
+  }
+
+  return groups;
 }
 
 function formatSetValue(
@@ -62,16 +140,27 @@ function AnimatedWorkoutRow({
       <Pressable
         onPress={onPress}
         android_ripple={{ color: 'rgba(59,130,246,0.12)' }}
-        style={styles.workoutRow}
+        style={({ pressed }) => [styles.workoutCard, pressed ? styles.workoutCardPressed : null]}
       >
-        <View style={styles.workoutRowContent}>
-          <View style={styles.workoutRowText}>
-            <Text style={styles.workoutDate}>{formatTimestamp(workout.timestamp)}</Text>
-            <Text style={sharedStyles.smallText}>
-              {workout.exerciseCount} exercises, {workout.setCount} sets
-            </Text>
+        <Text numberOfLines={1} style={styles.workoutName}>
+          {getWorkoutTitle(workout)}
+        </Text>
+        <Text style={styles.workoutDate}>{formatHistoryTimestamp(workout.timestamp)}</Text>
+
+        <View style={styles.metricRow}>
+          <View style={styles.metricItem}>
+            <View style={styles.metricIcon}>
+              <Ionicons color="#c7c7cc" name="time" size={22} />
+            </View>
+            <Text style={styles.metricText}>{formatWorkoutDuration(workout.durationSeconds)}</Text>
           </View>
-          <Ionicons color="#3a3a3c" name="chevron-forward" size={18} />
+
+          <View style={styles.metricItem}>
+            <View style={styles.metricIcon}>
+              <Ionicons color="#c7c7cc" name="barbell" size={22} />
+            </View>
+            <Text style={styles.metricText}>{formatTotalWeight(workout.totalWeight)}</Text>
+          </View>
         </View>
       </Pressable>
     </Animated.View>
@@ -83,6 +172,7 @@ export function HistoryScreen() {
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
   const [workouts, setWorkouts] = useState<WorkoutSummary[]>([]);
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutDetail | null>(null);
+  const groupedWorkouts = useMemo(() => groupWorkoutsByMonth(workouts), [workouts]);
 
   // This loader fetches non-template workout summaries from repository.ts for the History tab.
   const loadWorkouts = useCallback(async () => {
@@ -131,7 +221,8 @@ export function HistoryScreen() {
           </View>
         </Pressable>
 
-        <Text style={sharedStyles.title}>{formatTimestamp(selectedWorkout.timestamp)}</Text>
+        <Text style={sharedStyles.title}>{getWorkoutTitle(selectedWorkout)}</Text>
+        <Text style={styles.detailTimestamp}>{formatTimestamp(selectedWorkout.timestamp)}</Text>
 
         {selectedWorkout.exercises.map((exercise) => (
           <View key={exercise.id} style={sharedStyles.section}>
@@ -163,13 +254,24 @@ export function HistoryScreen() {
             <Text style={sharedStyles.emptyText}>No workouts saved yet.</Text>
           </View>
         ) : (
-          workouts.map((workout, index) => (
-            <AnimatedWorkoutRow
-              key={workout.id}
-              workout={workout}
-              index={index}
-              onPress={() => openWorkout(workout.id)}
-            />
+          groupedWorkouts.map((group) => (
+            <View key={group.key} style={styles.monthSection}>
+              <View style={styles.monthHeader}>
+                <Text style={styles.monthTitle}>{group.label}</Text>
+                <Text style={styles.monthCount}>
+                  {group.workouts.length} {group.workouts.length === 1 ? 'workout' : 'workouts'}
+                </Text>
+              </View>
+
+              {group.workouts.map((workout, index) => (
+                <AnimatedWorkoutRow
+                  key={workout.id}
+                  workout={workout}
+                  index={index}
+                  onPress={() => openWorkout(workout.id)}
+                />
+              ))}
+            </View>
           ))
         )}
       </ScrollView>
@@ -189,8 +291,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   content: {
-    paddingBottom: 24,
+    paddingBottom: 28,
     paddingHorizontal: 16,
+    paddingTop: 18,
+  },
+  detailTimestamp: {
+    color: '#8e8e93',
+    fontSize: 15,
+    marginBottom: 18,
   },
   emptyState: {
     alignItems: 'center',
@@ -205,7 +313,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#000000',
     borderBottomColor: 'rgba(59,130,246,0.08)',
     borderBottomWidth: 1,
     flexDirection: 'row',
@@ -221,9 +329,54 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 0.3,
+    fontSize: 48,
+    fontWeight: '300',
+    letterSpacing: 0,
+  },
+  metricIcon: {
+    alignItems: 'center',
+    backgroundColor: '#2c2c2e',
+    borderRadius: 18,
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  metricItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 1,
+    gap: 10,
+  },
+  metricRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 28,
+    marginTop: 28,
+  },
+  metricText: {
+    color: '#ffffff',
+    fontSize: 26,
+    fontWeight: '500',
+    letterSpacing: 0,
+  },
+  monthCount: {
+    color: '#a1a1a6',
+    fontSize: 20,
+  },
+  monthHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  monthSection: {
+    marginBottom: 26,
+  },
+  monthTitle: {
+    color: '#ffffff',
+    flex: 1,
+    fontSize: 32,
+    fontWeight: '800',
   },
   screen: {
     backgroundColor: '#000000',
@@ -241,23 +394,26 @@ const styles = StyleSheet.create({
     fontSize: 17,
     letterSpacing: 0.2,
   },
+  workoutCard: {
+    backgroundColor: '#101012',
+    borderColor: '#3a3a3c',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    paddingHorizontal: 18,
+    paddingVertical: 20,
+  },
+  workoutCardPressed: {
+    borderColor: '#3b82f6',
+  },
   workoutDate: {
+    color: '#a1a1a6',
+    fontSize: 22,
+    marginTop: 12,
+  },
+  workoutName: {
     color: '#ffffff',
-    fontSize: 17,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  workoutRow: {
-    borderBottomColor: '#2c2c2e',
-    borderBottomWidth: 1,
-    paddingVertical: 14,
-  },
-  workoutRowContent: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  workoutRowText: {
-    flex: 1,
+    fontSize: 28,
+    fontWeight: '800',
   },
 });

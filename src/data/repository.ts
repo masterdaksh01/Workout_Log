@@ -10,6 +10,7 @@ import type {
   ProfileMetricKey,
   ProfileSettings,
   SaveWorkoutExercise,
+  SaveWorkoutOptions,
   WorkoutDashboardData,
   WorkoutDetail,
   WorkoutDetailExercise,
@@ -27,7 +28,9 @@ type InsertResult = {
 // This row type describes the joined performed-workout query that getWorkout maps for HistoryScreen.
 type WorkoutRow = {
   workoutId: number;
+  workoutName: string | null;
   timestamp: string;
+  durationSeconds: number | null;
   workoutExerciseId: number | null;
   exerciseId: number | null;
   exerciseName: string | null;
@@ -627,16 +630,22 @@ export async function moveWorkoutTemplateToFolder(id: number, folderId: number |
 }
 
 // This legacy V1 function stores a completed performed workout that HistoryScreen later reads.
-export async function saveWorkout(exercises: SaveWorkoutExercise[]) {
+export async function saveWorkout(exercises: SaveWorkoutExercise[], options: SaveWorkoutOptions = {}) {
   const db = await getDatabase();
   const timestamp = new Date().toISOString();
+  const workoutName = options.name?.trim() || null;
+  const durationSeconds = Number.isFinite(options.durationSeconds)
+    ? Math.max(Math.round(options.durationSeconds ?? 0), 0)
+    : null;
 
   await db.execAsync('BEGIN TRANSACTION;');
 
   try {
     const workoutResult = (await db.runAsync(
-      'INSERT INTO workouts (timestamp) VALUES (?)',
+      'INSERT INTO workouts (timestamp, name, duration_seconds) VALUES (?, ?, ?)',
       timestamp,
+      workoutName,
+      durationSeconds,
     )) as InsertResult;
 
     const workoutId = workoutResult.lastInsertRowId;
@@ -680,7 +689,10 @@ export async function getWorkoutSummaries() {
   return db.getAllAsync<WorkoutSummary>(`
     SELECT
       workouts.id,
+      workouts.name,
       workouts.timestamp,
+      workouts.duration_seconds AS durationSeconds,
+      COALESCE(SUM(sets.weight * sets.reps), 0) AS totalWeight,
       COUNT(DISTINCT workout_exercises.id) AS exerciseCount,
       COUNT(sets.id) AS setCount
     FROM workouts
@@ -691,7 +703,6 @@ export async function getWorkoutSummaries() {
     WHERE workouts.is_template = 0
     GROUP BY workouts.id
     ORDER BY workouts.timestamp DESC
-    LIMIT 10
   `);
 }
 
@@ -702,7 +713,9 @@ export async function getWorkout(id: number): Promise<WorkoutDetail | null> {
     `
       SELECT
         workouts.id AS workoutId,
+        workouts.name AS workoutName,
         workouts.timestamp,
+        workouts.duration_seconds AS durationSeconds,
         workout_exercises.id AS workoutExerciseId,
         workout_exercises.exercise_id AS exerciseId,
         exercises.name AS exerciseName,
@@ -731,7 +744,9 @@ export async function getWorkout(id: number): Promise<WorkoutDetail | null> {
 
   const workout: WorkoutDetail = {
     id: rows[0].workoutId,
+    name: rows[0].workoutName,
     timestamp: rows[0].timestamp,
+    durationSeconds: rows[0].durationSeconds,
     exercises: [],
   };
   const exerciseMap = new Map<number, WorkoutDetailExercise>();

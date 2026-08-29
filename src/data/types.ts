@@ -81,14 +81,19 @@ export type WorkoutDetailExercise = {
 // This type is the full performed workout shape returned by repository.ts to HistoryScreen.
 export type WorkoutDetail = {
   id: number;
+  name: string | null;
   timestamp: string;
+  durationSeconds: number | null;
   exercises: WorkoutDetailExercise[];
 };
 
 // This type is the compact performed workout row shown in the HistoryScreen list.
 export type WorkoutSummary = {
   id: number;
+  name: string | null;
   timestamp: string;
+  durationSeconds: number | null;
+  totalWeight: number;
   exerciseCount: number;
   setCount: number;
 };
@@ -101,6 +106,11 @@ export type SaveWorkoutExercise = {
     reps: number;
     duration?: string;
   }>;
+};
+
+export type SaveWorkoutOptions = {
+  durationSeconds?: number;
+  name?: string;
 };
 
 // This type mirrors rows from the folders table displayed by WorkoutScreen.

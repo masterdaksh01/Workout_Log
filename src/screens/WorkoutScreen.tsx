@@ -877,7 +877,10 @@ export function WorkoutScreen() {
       .filter((exercise) => exercise.sets.length > 0);
 
     if (completedExercises.length > 0) {
-      await saveWorkout(completedExercises);
+      await saveWorkout(completedExercises, {
+        durationSeconds: workoutElapsedSeconds,
+        name: workout.name,
+      });
       await loadDashboard();
     }
 
@@ -886,7 +889,7 @@ export function WorkoutScreen() {
     setWorkoutElapsedSeconds(0);
     setActiveRestTimer(null);
     setSelectedWorkoutId(null);
-  }, [loadDashboard, startedWorkout]);
+  }, [loadDashboard, startedWorkout, workoutElapsedSeconds]);
 
   const handleRequestFinishStartedWorkout = useCallback(() => {
     setDeleteConfirmation({
