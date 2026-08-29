@@ -17,11 +17,6 @@ type WorkoutMonthGroup = {
   workouts: WorkoutSummary[];
 };
 
-// This formatter turns repository timestamps into display text for detail views.
-function formatTimestamp(timestamp: string) {
-  return new Date(timestamp).toLocaleString();
-}
-
 function formatHistoryTimestamp(timestamp: string) {
   const date = new Date(timestamp);
   const datePart = date.toLocaleDateString('en-GB', {
@@ -102,7 +97,28 @@ function formatSetValue(
     return set.duration;
   }
 
-  return `${set.weight} x ${set.reps}`;
+  return `${formatWeightValue(set.weight)} kg x ${set.reps}`;
+}
+
+function formatWeightValue(weight: number) {
+  return Number.isInteger(weight) ? String(weight) : String(weight.toFixed(1));
+}
+
+function calculateOneRepMax(weight: number, reps: number) {
+  return Math.round(weight * (1 + reps / 30));
+}
+
+function canShowOneRepMax(exercise: WorkoutDetail['exercises'][number]) {
+  return exercise.muscleGroup !== 'Cardio' && exercise.sets.some((set) => set.weight > 0);
+}
+
+function getWorkoutTotalWeight(workout: WorkoutDetail) {
+  return workout.exercises.reduce(
+    (workoutTotal, exercise) =>
+      workoutTotal +
+      exercise.sets.reduce((exerciseTotal, set) => exerciseTotal + set.weight * set.reps, 0),
+    0,
+  );
 }
 
 // Animated workout row fades in when it first appears.
@@ -210,32 +226,61 @@ export function HistoryScreen() {
   // This branch renders the detail view for the selected performed workout.
   if (selectedWorkout) {
     return (
-      <ScrollView contentContainerStyle={styles.content} style={sharedStyles.screen}>
+      <ScrollView contentContainerStyle={styles.detailContent} style={styles.screen}>
         <Pressable
           onPress={() => setSelectedWorkout(null)}
-          style={[sharedStyles.button, sharedStyles.buttonSecondary, styles.backButton]}
+          style={styles.detailBackButton}
         >
-          <View style={styles.backButtonInner}>
-            <Ionicons color="#e5e5ea" name="chevron-back" size={18} />
-            <Text style={sharedStyles.buttonTextSecondary}>Back</Text>
-          </View>
+          <Ionicons color="#ffffff" name="chevron-back" size={24} />
         </Pressable>
 
-        <Text style={sharedStyles.title}>{getWorkoutTitle(selectedWorkout)}</Text>
-        <Text style={styles.detailTimestamp}>{formatTimestamp(selectedWorkout.timestamp)}</Text>
+        <Text numberOfLines={1} style={styles.detailTitle}>
+          {getWorkoutTitle(selectedWorkout)}
+        </Text>
+        <Text style={styles.detailTimestamp}>{formatHistoryTimestamp(selectedWorkout.timestamp)}</Text>
 
-        {selectedWorkout.exercises.map((exercise) => (
-          <View key={exercise.id} style={sharedStyles.section}>
-            <Text style={styles.exerciseName}>{exercise.exerciseName}</Text>
+        <View style={styles.detailExerciseList}>
+          {selectedWorkout.exercises.map((exercise) => {
+            const showOneRepMax = canShowOneRepMax(exercise);
 
-            {exercise.sets.map((set, index) => (
-              <View key={set.id} style={styles.setRow}>
-                <Text style={styles.setText}>Set {index + 1}</Text>
-                <Text style={styles.setText}>{formatSetValue(set, exercise.muscleGroup)}</Text>
+            return (
+              <View key={exercise.id} style={styles.detailExerciseSection}>
+                <View style={styles.detailExerciseHeader}>
+                  <Text numberOfLines={1} style={styles.exerciseName}>
+                    {exercise.exerciseName}
+                  </Text>
+                  {showOneRepMax ? <Text style={styles.oneRepHeader}>1RM</Text> : null}
+                </View>
+
+                {exercise.sets.map((set, index) => (
+                  <View key={set.id} style={styles.setRow}>
+                    <Text style={styles.setNumber}>{index + 1}</Text>
+                    <Text style={styles.setValue}>{formatSetValue(set, exercise.muscleGroup)}</Text>
+                    {showOneRepMax ? (
+                      <Text style={styles.oneRepValue}>{calculateOneRepMax(set.weight, set.reps)}</Text>
+                    ) : null}
+                  </View>
+                ))}
               </View>
-            ))}
+            );
+          })}
+        </View>
+
+        <View style={styles.detailSummaryRow}>
+          <View style={styles.detailSummaryItem}>
+            <Ionicons color="#a1a1a6" name="time" size={18} />
+            <Text style={styles.detailSummaryText}>
+              {formatWorkoutDuration(selectedWorkout.durationSeconds)}
+            </Text>
           </View>
-        ))}
+
+          <View style={styles.detailSummaryItem}>
+            <Ionicons color="#a1a1a6" name="barbell" size={18} />
+            <Text style={styles.detailSummaryText}>
+              {formatTotalWeight(getWorkoutTotalWeight(selectedWorkout))}
+            </Text>
+          </View>
+        </View>
       </ScrollView>
     );
   }
@@ -281,24 +326,60 @@ export function HistoryScreen() {
 
 // These local styles support the History list and detail rows.
 const styles = StyleSheet.create({
-  backButton: {
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-  },
-  backButtonInner: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 4,
-  },
   content: {
     paddingBottom: 28,
     paddingHorizontal: 16,
     paddingTop: 18,
   },
+  detailBackButton: {
+    alignItems: 'center',
+    height: 36,
+    justifyContent: 'center',
+    marginBottom: 12,
+    marginLeft: -8,
+    width: 36,
+  },
+  detailContent: {
+    paddingBottom: 28,
+    paddingHorizontal: 16,
+    paddingTop: 28,
+  },
+  detailExerciseHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  detailExerciseList: {
+    marginTop: 18,
+  },
+  detailExerciseSection: {
+    marginBottom: 14,
+  },
+  detailSummaryItem: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 9,
+  },
+  detailSummaryRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 28,
+    marginTop: 18,
+  },
+  detailSummaryText: {
+    color: '#ffffff',
+    fontSize: 18,
+  },
   detailTimestamp: {
-    color: '#8e8e93',
-    fontSize: 15,
-    marginBottom: 18,
+    color: '#c7c7cc',
+    fontSize: 18,
+  },
+  detailTitle: {
+    color: '#ffffff',
+    fontSize: 36,
+    fontWeight: '400',
+    letterSpacing: 0,
+    marginBottom: 34,
   },
   emptyState: {
     alignItems: 'center',
@@ -307,9 +388,9 @@ const styles = StyleSheet.create({
   },
   exerciseName: {
     color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 6,
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '800',
   },
   header: {
     alignItems: 'center',
@@ -382,17 +463,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     flex: 1,
   },
-  setRow: {
-    borderBottomColor: '#1c1c1e',
-    borderBottomWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-  },
-  setText: {
-    color: '#e5e5ea',
+  oneRepHeader: {
+    color: '#ffffff',
     fontSize: 17,
-    letterSpacing: 0.2,
+    fontWeight: '800',
+    textAlign: 'right',
+    width: 54,
+  },
+  oneRepValue: {
+    color: '#c7c7cc',
+    fontSize: 17,
+    textAlign: 'right',
+    width: 54,
+  },
+  setRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 6,
+  },
+  setNumber: {
+    color: '#c7c7cc',
+    fontSize: 17,
+    width: 12,
+  },
+  setValue: {
+    color: '#c7c7cc',
+    flex: 1,
+    fontSize: 17,
   },
   workoutCard: {
     backgroundColor: '#101012',
