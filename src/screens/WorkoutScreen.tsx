@@ -56,6 +56,9 @@ type ExercisePickerFilter = MuscleGroup | 'All';
 type CreateTarget = {
   folderId: number | null;
 };
+type ActiveExercisePickerTarget =
+  | { mode: 'add' }
+  | { mode: 'replace'; exerciseKey: string };
 type DeleteConfirmation = {
   title: string;
   message: string;
@@ -113,6 +116,7 @@ const timerSoundModules = [
   require('../assets/File2.mpeg'),
   require('../assets/File3.mpeg'),
 ] as const;
+let lastSetCompletionSoundIndex: number | null = null;
 const setSwipeDeleteDistance = 90;
 
 // This formatter prepares the future last-performed value shown on workout template cards.
@@ -225,6 +229,31 @@ function createStartedWorkout(workout: WorkoutTemplate): StartedWorkout {
   };
 }
 
+function createStartedWorkoutExercise(
+  exercise: Pick<Exercise, 'id' | 'muscleGroup' | 'name' | 'note'>,
+  exerciseIndex: number,
+): StartedWorkoutExercise {
+  return {
+    exerciseId: exercise.id,
+    key: `${exercise.id}-active-${exerciseIndex}-${Date.now()}`,
+    muscleGroup: exercise.muscleGroup,
+    name: exercise.name,
+    note: exercise.note,
+    noteOpen: exercise.note.trim().length > 0,
+    sets: [1, 2].map((setNumber) => ({
+      completed: false,
+      duration: '',
+      id: `${exercise.id}-active-${exerciseIndex}-${setNumber}-${Date.now()}`,
+      previousReps: null,
+      previousWeight: null,
+      reps: '',
+      restSeconds: setNumber === 1 ? firstSetRestSeconds : defaultRestSeconds,
+      setNumber,
+      weight: '',
+    })),
+  };
+}
+
 function parseSetNumber(value: string) {
   const parsedValue = Number.parseFloat(value);
 
@@ -232,8 +261,13 @@ function parseSetNumber(value: string) {
 }
 
 function getRandomSetCompletionSoundModule() {
-  const randomIndex = Math.floor(Math.random() * timerSoundModules.length);
+  const availableIndexes = timerSoundModules
+    .map((_, index) => index)
+    .filter((index) => index !== lastSetCompletionSoundIndex);
+  const randomIndex =
+    availableIndexes[Math.floor(Math.random() * availableIndexes.length)] ?? 0;
 
+  lastSetCompletionSoundIndex = randomIndex;
   return timerSoundModules[randomIndex] ?? null;
 }
 
@@ -280,6 +314,8 @@ export function WorkoutScreen() {
   const [exercisesNestedScreenOpen, setExercisesNestedScreenOpen] = useState(false);
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [startedWorkout, setStartedWorkout] = useState<StartedWorkout | null>(null);
+  const [activeExercisePickerTarget, setActiveExercisePickerTarget] =
+    useState<ActiveExercisePickerTarget | null>(null);
   const [startedExerciseMenuKey, setStartedExerciseMenuKey] = useState<string | null>(null);
   const [isStartedWorkoutMinimized, setIsStartedWorkoutMinimized] = useState(false);
   const [workoutElapsedSeconds, setWorkoutElapsedSeconds] = useState(0);
@@ -405,6 +441,11 @@ export function WorkoutScreen() {
           return true;
         }
 
+        if (activeExercisePickerTarget) {
+          setActiveExercisePickerTarget(null);
+          return true;
+        }
+
         if (startedWorkout) {
           setDeleteConfirmation({
             confirmLabel: 'Discard',
@@ -414,6 +455,7 @@ export function WorkoutScreen() {
               setIsStartedWorkoutMinimized(false);
               setWorkoutElapsedSeconds(0);
               setActiveRestTimer(null);
+              setActiveExercisePickerTarget(null);
             },
             title: 'Cancel workout',
           });
@@ -453,6 +495,7 @@ export function WorkoutScreen() {
       renameTarget,
       selectedExercise,
       selectedWorkoutId,
+      activeExercisePickerTarget,
       startedWorkout,
       startedExerciseMenuKey,
     ]),
@@ -760,6 +803,81 @@ export function WorkoutScreen() {
     setActiveRestTimer((current) => (current?.exerciseKey === exerciseKey ? null : current));
   }, []);
 
+  const handleAddStartedExercises = useCallback((exercises: Exercise[]) => {
+    setStartedWorkout((current) => {
+      if (!current) {
+        return current;
+      }
+
+      const existingExerciseIds = new Set(current.exercises.map((exercise) => exercise.exerciseId));
+      const exercisesToAdd = exercises.filter((exercise) => !existingExerciseIds.has(exercise.id));
+
+      if (exercisesToAdd.length === 0) {
+        return current;
+      }
+
+      return {
+        ...current,
+        exercises: [
+          ...current.exercises,
+          ...exercisesToAdd.map((exercise, index) =>
+            createStartedWorkoutExercise(exercise, current.exercises.length + index),
+          ),
+        ],
+      };
+    });
+    setActiveExercisePickerTarget(null);
+  }, []);
+
+  const handleReplaceStartedExercise = useCallback(
+    (exerciseKey: string, replacementExercise: Exercise) => {
+      setStartedWorkout((current) => {
+        if (!current) {
+          return current;
+        }
+
+        const existingExerciseIds = new Set(
+          current.exercises
+            .filter((exercise) => exercise.key !== exerciseKey)
+            .map((exercise) => exercise.exerciseId),
+        );
+
+        if (existingExerciseIds.has(replacementExercise.id)) {
+          return current;
+        }
+
+        return {
+          ...current,
+          exercises: current.exercises.map((exercise) => {
+            if (exercise.key !== exerciseKey || exercise.exerciseId === replacementExercise.id) {
+              return exercise;
+            }
+
+            return {
+              ...exercise,
+              exerciseId: replacementExercise.id,
+              muscleGroup: replacementExercise.muscleGroup,
+              name: replacementExercise.name,
+              note: replacementExercise.note,
+              noteOpen: replacementExercise.note.trim().length > 0,
+              sets: exercise.sets.map((set) => ({
+                ...set,
+                duration: replacementExercise.muscleGroup === 'Cardio' ? '' : set.duration,
+                previousReps: null,
+                previousWeight: null,
+              })),
+            };
+          }),
+        };
+      });
+      setActiveRestTimer((current) =>
+        current?.exerciseKey === exerciseKey ? null : current,
+      );
+      setActiveExercisePickerTarget(null);
+    },
+    [],
+  );
+
   const updateStartedExerciseNote = useCallback((exerciseKey: string, note: string) => {
     let exerciseIdToSave: number | null = null;
 
@@ -888,6 +1006,7 @@ export function WorkoutScreen() {
     setIsStartedWorkoutMinimized(false);
     setWorkoutElapsedSeconds(0);
     setActiveRestTimer(null);
+    setActiveExercisePickerTarget(null);
     setSelectedWorkoutId(null);
   }, [loadDashboard, startedWorkout, workoutElapsedSeconds]);
 
@@ -910,6 +1029,7 @@ export function WorkoutScreen() {
         setIsStartedWorkoutMinimized(false);
         setWorkoutElapsedSeconds(0);
         setActiveRestTimer(null);
+        setActiveExercisePickerTarget(null);
       },
       title: 'Cancel workout',
     });
@@ -1078,12 +1198,41 @@ export function WorkoutScreen() {
     );
   }
 
+  if (startedWorkout && activeExercisePickerTarget) {
+    const existingExerciseIds = startedWorkout.exercises.map((exercise) => exercise.exerciseId);
+    const targetExercise =
+      activeExercisePickerTarget.mode === 'replace'
+        ? startedWorkout.exercises.find(
+          (exercise) => exercise.key === activeExercisePickerTarget.exerciseKey,
+        )
+        : null;
+
+    return (
+      <>
+        <ActiveWorkoutExercisePickerScreen
+          existingExerciseIds={existingExerciseIds}
+          mode={activeExercisePickerTarget.mode}
+          onAddExercises={handleAddStartedExercises}
+          onBack={() => setActiveExercisePickerTarget(null)}
+          onReplaceExercise={(exercise) => {
+            if (activeExercisePickerTarget.mode === 'replace') {
+              handleReplaceStartedExercise(activeExercisePickerTarget.exerciseKey, exercise);
+            }
+          }}
+          targetExerciseName={targetExercise?.name}
+        />
+        {modalLayer}
+      </>
+    );
+  }
+
   if (startedWorkout && !isStartedWorkoutMinimized) {
     return (
       <>
         <StartedWorkoutScreen
           activeRestTimer={activeRestTimer}
           elapsedSeconds={workoutElapsedSeconds}
+          onAddExercise={() => setActiveExercisePickerTarget({ mode: 'add' })}
           onAddSet={handleAddStartedSet}
           onCancel={handleRequestCancelStartedWorkout}
           onChangeSet={updateStartedWorkoutSet}
@@ -1107,9 +1256,9 @@ export function WorkoutScreen() {
             })
           }
           onRemoveExercise={handleRemoveStartedExercise}
-          onReplaceExercise={() => {
+          onReplaceExercise={(exerciseKey) => {
             setStartedExerciseMenuKey(null);
-            Alert.alert('Replace exercise', 'Exercise replacement will be added later.');
+            setActiveExercisePickerTarget({ exerciseKey, mode: 'replace' });
           }}
           onToggleExerciseMenu={(exerciseKey) =>
             setStartedExerciseMenuKey((current) =>
@@ -1609,6 +1758,207 @@ function CreateWorkoutTemplateScreen({
   );
 }
 
+type ActiveWorkoutExercisePickerScreenProps = {
+  mode: ActiveExercisePickerTarget['mode'];
+  existingExerciseIds: number[];
+  targetExerciseName?: string;
+  onBack: () => void;
+  onAddExercises: (exercises: Exercise[]) => void;
+  onReplaceExercise: (exercise: Exercise) => void;
+};
+
+function ActiveWorkoutExercisePickerScreen({
+  mode,
+  existingExerciseIds,
+  targetExerciseName,
+  onBack,
+  onAddExercises,
+  onReplaceExercise,
+}: ActiveWorkoutExercisePickerScreenProps) {
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [selectedExerciseIds, setSelectedExerciseIds] = useState<number[]>([]);
+  const [exerciseRequiredWarningVisible, setExerciseRequiredWarningVisible] = useState(false);
+  const [exerciseFilter, setExerciseFilter] = useState<ExercisePickerFilter>('All');
+
+  useEffect(() => {
+    getExercises().then(setExercises);
+  }, []);
+
+  const unavailableExerciseIdSet = useMemo(
+    () => new Set(existingExerciseIds),
+    [existingExerciseIds],
+  );
+  const selectedExerciseIdSet = useMemo(() => new Set(selectedExerciseIds), [selectedExerciseIds]);
+  const selectedExercises = selectedExerciseIds
+    .map((exerciseId) => exercises.find((exercise) => exercise.id === exerciseId))
+    .filter((exercise): exercise is Exercise => Boolean(exercise));
+  const availableExercises = useMemo(
+    () => exercises.filter((exercise) => !unavailableExerciseIdSet.has(exercise.id)),
+    [exercises, unavailableExerciseIdSet],
+  );
+  const filteredExercises = useMemo(
+    () =>
+      exerciseFilter === 'All'
+        ? availableExercises
+        : availableExercises.filter((exercise) => exercise.muscleGroup === exerciseFilter),
+    [availableExercises, exerciseFilter],
+  );
+
+  function handleAddExercises() {
+    if (selectedExercises.length === 0) {
+      setExerciseRequiredWarningVisible(true);
+      return;
+    }
+
+    onAddExercises(selectedExercises);
+  }
+
+  return (
+    <>
+      <FlatList
+        ListEmptyComponent={<Text style={sharedStyles.emptyText}>No available exercises.</Text>}
+        ListFooterComponent={
+          mode === 'add' ? (
+            <View style={styles.createFooter}>
+              <Pressable onPress={handleAddExercises} style={sharedStyles.button}>
+                <Text style={sharedStyles.buttonText}>Add Exercise</Text>
+              </Pressable>
+            </View>
+          ) : null
+        }
+        ListHeaderComponent={
+          <View>
+            <View style={styles.createHeader}>
+              <Pressable
+                onPress={onBack}
+                style={[sharedStyles.button, sharedStyles.buttonSecondary]}
+              >
+                <Text style={sharedStyles.buttonTextSecondary}>Back</Text>
+              </Pressable>
+              <Text style={styles.createTitle}>
+                {mode === 'add' ? 'Add Exercise' : 'Replace Exercise'}
+              </Text>
+            </View>
+
+            {mode === 'add' ? (
+              <View style={sharedStyles.section}>
+                <Text style={styles.sectionTitle}>Exercise Order</Text>
+                {selectedExercises.length === 0 ? (
+                  <Text style={sharedStyles.emptyText}>No exercises added.</Text>
+                ) : (
+                  selectedExercises.map((exercise, index) => (
+                    <Text key={`${exercise.id}-${index}`} style={styles.selectedExercise}>
+                      {index + 1}. {exercise.name}
+                    </Text>
+                  ))
+                )}
+              </View>
+            ) : (
+              <View style={sharedStyles.section}>
+                <Text style={styles.sectionTitle}>Replacing</Text>
+                <Text style={styles.selectedExercise}>{targetExerciseName ?? 'Exercise'}</Text>
+              </View>
+            )}
+
+            <Text style={styles.sectionTitle}>Exercises</Text>
+            <ScrollView
+              contentContainerStyle={styles.exerciseFilterContent}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.exerciseFilterScroller}
+            >
+              {(['All', ...MUSCLE_GROUPS] as ExercisePickerFilter[]).map((filter) => {
+                const selected = exerciseFilter === filter;
+
+                return (
+                  <Pressable
+                    key={filter}
+                    onPress={() => setExerciseFilter(filter)}
+                    style={[
+                      styles.exerciseFilterButton,
+                      selected ? styles.exerciseFilterButtonActive : null,
+                    ]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[
+                        styles.exerciseFilterText,
+                        selected ? styles.exerciseFilterTextActive : null,
+                      ]}
+                    >
+                      {filter}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        }
+        contentContainerStyle={styles.createContent}
+        data={filteredExercises}
+        keyExtractor={(exercise) => String(exercise.id)}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => {
+          const selected = selectedExerciseIdSet.has(item.id);
+
+          return (
+            <View style={styles.exercisePickerRow}>
+              <View style={styles.exerciseText}>
+                <Text style={styles.exerciseName}>{item.name}</Text>
+              </View>
+              <Pressable
+                onPress={() => {
+                  if (mode === 'replace') {
+                    onReplaceExercise(item);
+                    return;
+                  }
+
+                  setSelectedExerciseIds((current) =>
+                    current.includes(item.id)
+                      ? current.filter((exerciseId) => exerciseId !== item.id)
+                      : [...current, item.id],
+                  );
+                }}
+                style={[
+                  sharedStyles.button,
+                  selected ? sharedStyles.buttonSecondary : null,
+                ]}
+              >
+                <Text style={selected ? sharedStyles.buttonTextSecondary : sharedStyles.buttonText}>
+                  {mode === 'replace' ? 'Replace' : selected ? 'Remove' : 'Add'}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        }}
+        style={styles.screen}
+      />
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setExerciseRequiredWarningVisible(false)}
+        transparent
+        visible={exerciseRequiredWarningVisible}
+      >
+        <BlurView intensity={35} style={styles.confirmationBackdrop} tint="dark">
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Exercise required</Text>
+            <Text style={styles.modalMessage}>Add at least one exercise before saving it.</Text>
+            <View style={styles.modalActions}>
+              <Pressable
+                onPress={() => setExerciseRequiredWarningVisible(false)}
+                style={[sharedStyles.button, styles.modalButton]}
+              >
+                <Text style={sharedStyles.buttonText}>OK</Text>
+              </Pressable>
+            </View>
+          </View>
+        </BlurView>
+      </Modal>
+    </>
+  );
+}
+
 type WorkoutTemplateDetailScreenProps = {
   workout: WorkoutTemplate;
   menuOpen: boolean;
@@ -1728,6 +2078,7 @@ type StartedWorkoutScreenProps = {
   onCancel: () => void;
   onFinish: () => void;
   onMinimize: () => void;
+  onAddExercise: () => void;
   onAddSet: (exerciseKey: string) => void;
   onCompleteSet: (exerciseKey: string, set: StartedWorkoutSet) => void;
   onDeleteSet: (exerciseKey: string, setId: string) => void;
@@ -1736,7 +2087,7 @@ type StartedWorkoutScreenProps = {
   onCloseEmptyExerciseNote: (exerciseKey: string) => void;
   onOpenExerciseInfo: (exercise: StartedWorkoutExercise) => void;
   onRemoveExercise: (exerciseKey: string) => void;
-  onReplaceExercise: () => void;
+  onReplaceExercise: (exerciseKey: string) => void;
   onToggleExerciseMenu: (exerciseKey: string) => void;
   onChangeSet: (
     exerciseKey: string,
@@ -1753,6 +2104,7 @@ function StartedWorkoutScreen({
   onCancel,
   onFinish,
   onMinimize,
+  onAddExercise,
   onAddSet,
   onCompleteSet,
   onDeleteSet,
@@ -1781,7 +2133,7 @@ function StartedWorkoutScreen({
       <FlatList
         ListFooterComponent={
           <View style={styles.startedFooter}>
-            <Pressable style={styles.startedAddExerciseButton}>
+            <Pressable onPress={onAddExercise} style={styles.startedAddExerciseButton}>
               <Text style={styles.startedAddExerciseText}>ADD EXERCISE</Text>
             </Pressable>
             <Pressable onPress={onCancel} style={styles.startedCancelButton}>
@@ -1818,7 +2170,7 @@ function StartedWorkoutScreen({
             onDeleteSet={(setId) => onDeleteSet(item.key, setId)}
             onOpenInfo={() => onOpenExerciseInfo(item)}
             onRemoveExercise={() => onRemoveExercise(item.key)}
-            onReplaceExercise={onReplaceExercise}
+            onReplaceExercise={() => onReplaceExercise(item.key)}
             onToggleMenu={() => onToggleExerciseMenu(item.key)}
           />
         )}

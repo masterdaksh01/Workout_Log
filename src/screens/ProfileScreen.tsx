@@ -302,7 +302,7 @@ function MetricDetailScreen({ metric, entries, onAdd, onBack }: MetricDetailScre
     <View style={styles.metricScreen}>
       <View style={styles.metricHeader}>
         <Pressable accessibilityRole="button" onPress={onBack} style={styles.metricBackButton}>
-          <Ionicons color="#ffffff" name="chevron-back" size={34} />
+          <Ionicons color="#ffffff" name="chevron-back" size={24} />
         </Pressable>
         <Text style={styles.metricTitle}>{metricLabels[metric]}</Text>
       </View>
@@ -321,7 +321,7 @@ function MetricDetailScreen({ metric, entries, onAdd, onBack }: MetricDetailScre
       <View style={styles.metricHistoryHeader}>
         <Text style={styles.metricHistoryTitle}>HISTORY</Text>
         <Pressable accessibilityRole="button" onPress={onAdd} hitSlop={12}>
-          <Ionicons color="#3b82f6" name="add-circle-outline" size={26} />
+          <Ionicons color="#3b82f6" name="add-circle-outline" size={22} />
         </Pressable>
       </View>
 
@@ -610,7 +610,7 @@ function MetricEntryWindow({
               <Text style={styles.metricEntryHint}>Enter value in {metricUnits[metric]}</Text>
             </View>
             <Pressable accessibilityRole="button" onPress={onClose} hitSlop={12}>
-              <Ionicons color="#d1d5db" name="close" size={24} />
+              <Ionicons color="#d1d5db" name="close" size={22} />
             </Pressable>
           </View>
           <Text style={styles.metricEntryLabel}>Value</Text>
@@ -836,15 +836,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 48,
-    paddingHorizontal: 16,
+    minHeight: 42,
+    paddingHorizontal: 14,
   },
   dropdownOptionSelected: {
     backgroundColor: '#172033',
   },
   dropdownOptionText: {
     color: '#e5e5ea',
-    fontSize: 18,
+    fontSize: 16,
   },
   dropdownOptionTextSelected: {
     color: '#ffffff',
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 52,
+    minHeight: 48,
   },
   dropdownSelectedText: {
     color: '#3b82f6',
@@ -869,20 +869,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: 'row',
     gap: 10,
-    minHeight: 42,
+    minHeight: 38,
     minWidth: 132,
     paddingHorizontal: 12,
   },
   dropdownValueText: {
     color: '#ffffff',
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '600',
     textAlign: 'right',
     width: 74,
   },
   lightThemeText: {
     color: '#000000',
-    fontSize: 28,
+    fontSize: 20,
     fontWeight: '800',
   },
   lightThemeWindow: {
@@ -894,21 +894,21 @@ const styles = StyleSheet.create({
   },
   metricAddText: {
     color: '#3b82f6',
-    fontSize: 38,
+    fontSize: 24,
     fontWeight: '300',
-    lineHeight: 42,
+    lineHeight: 28,
   },
   metricBackButton: {
     justifyContent: 'center',
-    minHeight: 50,
-    width: 52,
+    minHeight: 44,
+    width: 44,
   },
   metricChartBody: {
     borderColor: '#3a3a3c',
     borderWidth: 1,
     justifyContent: 'center',
-    minHeight: 268,
-    marginTop: 18,
+    minHeight: 220,
+    marginTop: 14,
     paddingHorizontal: 12,
     paddingVertical: 14,
   },
@@ -917,28 +917,28 @@ const styles = StyleSheet.create({
     borderColor: '#2c2c2e',
     borderRadius: 8,
     borderWidth: 1,
-    marginHorizontal: 24,
-    marginTop: 22,
-    padding: 20,
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 14,
   },
   metricChartText: {
     color: '#c9c9ce',
-    fontSize: 22,
-    lineHeight: 28,
+    fontSize: 16,
+    lineHeight: 22,
     textAlign: 'center',
   },
   metricChartTitle: {
     color: '#ffffff',
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800',
   },
   metricChart: {
     flexDirection: 'row',
-    minHeight: 236,
+    minHeight: 200,
   },
   metricChartFrame: {
     flex: 1,
-    minHeight: 236,
+    minHeight: 200,
   },
   metricChartPoint: {
     alignItems: 'center',
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
   metricPlotArea: {
     flex: 1,
     marginRight: 8,
-    minHeight: 200,
+    minHeight: 170,
     position: 'relative',
   },
   metricLineSegment: {
@@ -1043,9 +1043,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#3a3a3c',
     borderBottomWidth: 1,
     color: '#ffffff',
-    fontSize: 28,
-    marginTop: 18,
-    minHeight: 56,
+    fontSize: 20,
+    marginTop: 10,
+    minHeight: 46,
     paddingVertical: 8,
   },
   metricEntryActions: {
@@ -1053,7 +1053,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     justifyContent: 'flex-end',
-    marginTop: 28,
+    marginTop: 22,
   },
   metricEntryBackdrop: {
     ...StyleSheet.absoluteFill,
@@ -1073,15 +1073,15 @@ const styles = StyleSheet.create({
   },
   metricEntryCloseText: {
     color: '#d1d5db',
-    fontSize: 26,
+    fontSize: 20,
     fontWeight: '700',
-    lineHeight: 30,
+    lineHeight: 24,
   },
   metricEntryHeader: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 26,
+    marginBottom: 20,
   },
   metricEntryHint: {
     color: '#a1a1a6',
@@ -1124,7 +1124,7 @@ const styles = StyleSheet.create({
   },
   metricEntryTitle: {
     color: '#ffffff',
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '800',
   },
   metricEntryWindow: {
@@ -1133,54 +1133,54 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     maxWidth: 420,
-    padding: 24,
+    padding: 16,
     width: '100%',
   },
   metricEmptyText: {
     color: '#a1a1a6',
-    fontSize: 18,
-    marginHorizontal: 24,
-    marginTop: 24,
+    fontSize: 15,
+    marginHorizontal: 16,
+    marginTop: 18,
   },
   metricHeader: {
     alignItems: 'center',
     backgroundColor: '#1c1c1e',
     flexDirection: 'row',
     gap: 8,
-    paddingHorizontal: 24,
-    paddingTop: 36,
-    paddingBottom: 22,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   metricHistoryDate: {
     color: '#ffffff',
     flex: 1,
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   metricHistoryHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginHorizontal: 24,
-    marginTop: 58,
+    marginHorizontal: 16,
+    marginTop: 28,
   },
   metricHistoryRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 16,
     justifyContent: 'space-between',
-    marginHorizontal: 24,
-    marginTop: 28,
+    marginHorizontal: 16,
+    marginTop: 18,
   },
   metricHistoryTitle: {
     color: '#d1d1d6',
-    fontSize: 20,
+    fontSize: 15,
     letterSpacing: 0,
   },
   metricHistoryValue: {
     color: '#d1d1d6',
-    fontSize: 22,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   metricScreen: {
     backgroundColor: '#000000',
@@ -1189,49 +1189,49 @@ const styles = StyleSheet.create({
   metricSummaryLabel: {
     color: '#ffffff',
     flex: 1,
-    fontSize: 22,
+    fontSize: 16,
   },
   metricSummaryRow: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 52,
+    minHeight: 48,
   },
   metricSummaryValue: {
     color: '#c9c9ce',
     flex: 1,
-    fontSize: 20,
+    fontSize: 16,
     textAlign: 'right',
   },
   metricTitle: {
     color: '#ffffff',
     flex: 1,
-    fontSize: 24,
-    fontWeight: '400',
+    fontSize: 22,
+    fontWeight: '700',
   },
   row: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    minHeight: 52,
+    minHeight: 48,
   },
   rowLabel: {
     color: '#ffffff',
     flex: 1,
-    fontSize: 22,
+    fontSize: 16,
   },
   rowInput: {
     color: '#a1a1a6',
     flex: 1,
-    fontSize: 20,
-    minHeight: 44,
+    fontSize: 16,
+    minHeight: 40,
     paddingVertical: 6,
     textAlign: 'right',
   },
   rowValue: {
     color: '#a1a1a6',
     flex: 1,
-    fontSize: 20,
+    fontSize: 16,
     textAlign: 'right',
   },
   screen: {
@@ -1241,16 +1241,16 @@ const styles = StyleSheet.create({
   section: {
     borderBottomColor: '#2c2c2e',
     borderBottomWidth: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
   },
   sectionTitle: {
     borderBottomColor: '#3b82f6',
     borderBottomWidth: 2,
     color: '#f5f5f5',
-    fontSize: 24,
-    fontWeight: '800',
-    marginBottom: 14,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 10,
     paddingBottom: 6,
   },
 });

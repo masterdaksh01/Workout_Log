@@ -166,14 +166,14 @@ function AnimatedWorkoutRow({
         <View style={styles.metricRow}>
           <View style={styles.metricItem}>
             <View style={styles.metricIcon}>
-              <Ionicons color="#c7c7cc" name="time" size={22} />
+              <Ionicons color="#3b82f6" name="time" size={18} />
             </View>
             <Text style={styles.metricText}>{formatWorkoutDuration(workout.durationSeconds)}</Text>
           </View>
 
           <View style={styles.metricItem}>
             <View style={styles.metricIcon}>
-              <Ionicons color="#c7c7cc" name="barbell" size={22} />
+              <Ionicons color="#3b82f6" name="barbell" size={18} />
             </View>
             <Text style={styles.metricText}>{formatTotalWeight(workout.totalWeight)}</Text>
           </View>
@@ -231,7 +231,7 @@ export function HistoryScreen() {
           onPress={() => setSelectedWorkout(null)}
           style={styles.detailBackButton}
         >
-          <Ionicons color="#ffffff" name="chevron-back" size={24} />
+          <Ionicons color="#ffffff" name="chevron-back" size={22} />
         </Pressable>
 
         <Text numberOfLines={1} style={styles.detailTitle}>
@@ -327,22 +327,22 @@ export function HistoryScreen() {
 // These local styles support the History list and detail rows.
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: 28,
+    paddingBottom: 24,
     paddingHorizontal: 16,
-    paddingTop: 18,
+    paddingTop: 14,
   },
   detailBackButton: {
     alignItems: 'center',
-    height: 36,
+    height: 34,
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     marginLeft: -8,
-    width: 36,
+    width: 34,
   },
   detailContent: {
-    paddingBottom: 28,
+    paddingBottom: 24,
     paddingHorizontal: 16,
-    paddingTop: 28,
+    paddingTop: 16,
   },
   detailExerciseHeader: {
     alignItems: 'center',
@@ -350,10 +350,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   detailExerciseList: {
-    marginTop: 18,
+    marginTop: 16,
   },
   detailExerciseSection: {
-    marginBottom: 14,
+    marginBottom: 13,
   },
   detailSummaryItem: {
     alignItems: 'center',
@@ -363,23 +363,23 @@ const styles = StyleSheet.create({
   detailSummaryRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 28,
-    marginTop: 18,
+    gap: 24,
+    marginTop: 14,
   },
   detailSummaryText: {
     color: '#ffffff',
-    fontSize: 18,
+    fontSize: 16,
   },
   detailTimestamp: {
     color: '#c7c7cc',
-    fontSize: 18,
+    fontSize: 15,
   },
   detailTitle: {
     color: '#ffffff',
-    fontSize: 36,
-    fontWeight: '400',
+    fontSize: 24,
+    fontWeight: '800',
     letterSpacing: 0,
-    marginBottom: 34,
+    marginBottom: 16,
   },
   emptyState: {
     alignItems: 'center',
@@ -389,7 +389,7 @@ const styles = StyleSheet.create({
   exerciseName: {
     color: '#ffffff',
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
   },
   header: {
@@ -410,54 +410,56 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#ffffff',
-    fontSize: 48,
-    fontWeight: '300',
+    fontSize: 28,
+    fontWeight: '700',
     letterSpacing: 0,
   },
   metricIcon: {
     alignItems: 'center',
-    backgroundColor: '#2c2c2e',
-    borderRadius: 18,
-    height: 36,
+    backgroundColor: '#000000',
+    borderColor: '#1d4ed8',
+    borderWidth: 1,
+    borderRadius: 15,
+    height: 30,
     justifyContent: 'center',
-    width: 36,
+    width: 30,
   },
   metricItem: {
     alignItems: 'center',
     flexDirection: 'row',
     flexShrink: 1,
-    gap: 10,
+    gap: 8,
   },
   metricRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 28,
-    marginTop: 28,
+    gap: 22,
+    marginTop: 18,
   },
   metricText: {
     color: '#ffffff',
-    fontSize: 26,
-    fontWeight: '500',
+    fontSize: 18,
+    fontWeight: '700',
     letterSpacing: 0,
   },
   monthCount: {
     color: '#a1a1a6',
-    fontSize: 20,
+    fontSize: 16,
   },
   monthHeader: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 10,
   },
   monthSection: {
-    marginBottom: 26,
+    marginBottom: 22,
   },
   monthTitle: {
     color: '#ffffff',
     flex: 1,
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '700',
   },
   screen: {
     backgroundColor: '#000000',
@@ -465,14 +467,14 @@ const styles = StyleSheet.create({
   },
   oneRepHeader: {
     color: '#ffffff',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '800',
     textAlign: 'right',
     width: 54,
   },
   oneRepValue: {
     color: '#c7c7cc',
-    fontSize: 17,
+    fontSize: 16,
     textAlign: 'right',
     width: 54,
   },
@@ -484,13 +486,13 @@ const styles = StyleSheet.create({
   },
   setNumber: {
     color: '#c7c7cc',
-    fontSize: 17,
+    fontSize: 16,
     width: 12,
   },
   setValue: {
     color: '#c7c7cc',
     flex: 1,
-    fontSize: 17,
+    fontSize: 16,
   },
   workoutCard: {
     backgroundColor: '#101012',
@@ -498,20 +500,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     marginBottom: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   workoutCardPressed: {
     borderColor: '#3b82f6',
   },
   workoutDate: {
     color: '#a1a1a6',
-    fontSize: 22,
-    marginTop: 12,
+    fontSize: 15,
+    marginTop: 8,
   },
   workoutName: {
     color: '#ffffff',
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
   },
 });
