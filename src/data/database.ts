@@ -83,6 +83,7 @@ export async function initDatabase() {
       base_key TEXT UNIQUE,
       name TEXT NOT NULL,
       muscle_group TEXT,
+      note TEXT NOT NULL DEFAULT '',
       source TEXT NOT NULL DEFAULT 'user',
       max_volume REAL NOT NULL DEFAULT 0
     );
@@ -116,6 +117,7 @@ export async function initDatabase() {
       workout_exercise_id INTEGER NOT NULL,
       weight REAL NOT NULL,
       reps INTEGER NOT NULL,
+      duration TEXT,
       FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id) ON DELETE CASCADE
     );
 
@@ -133,9 +135,20 @@ export async function initDatabase() {
 
   await migrateWorkoutColumns();
   await migrateExerciseColumns();
+  await migrateSetColumns();
   await migrateWorkoutExerciseColumns();
   await seedProfileSettings();
   await seedBaseExercises();
+}
+
+async function migrateSetColumns() {
+  const db = await getDatabase();
+  const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(sets)');
+  const columnNames = new Set(columns.map((column) => column.name));
+
+  if (!columnNames.has('duration')) {
+    await db.execAsync('ALTER TABLE sets ADD COLUMN duration TEXT;');
+  }
 }
 
 // This migration adds V2 workout-template columns for users who already have the V1 workouts table.
@@ -173,6 +186,10 @@ async function migrateExerciseColumns() {
 
   if (!columnNames.has('source')) {
     await db.execAsync("ALTER TABLE exercises ADD COLUMN source TEXT NOT NULL DEFAULT 'user';");
+  }
+
+  if (!columnNames.has('note')) {
+    await db.execAsync("ALTER TABLE exercises ADD COLUMN note TEXT NOT NULL DEFAULT '';");
   }
 
   if (!columnNames.has('max_volume')) {
@@ -265,6 +282,7 @@ async function rebuildExercisesTable() {
       base_key TEXT UNIQUE,
       name TEXT NOT NULL,
       muscle_group TEXT,
+      note TEXT NOT NULL DEFAULT '',
       source TEXT NOT NULL DEFAULT 'user',
       max_volume REAL NOT NULL DEFAULT 0
     );
@@ -274,6 +292,7 @@ async function rebuildExercisesTable() {
       base_key,
       name,
       muscle_group,
+      note,
       source,
       max_volume
     )
@@ -282,6 +301,7 @@ async function rebuildExercisesTable() {
       base_key,
       name,
       muscle_group,
+      COALESCE(note, ''),
       source,
       COALESCE(max_volume, 0)
     FROM exercises;

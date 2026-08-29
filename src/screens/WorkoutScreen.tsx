@@ -32,6 +32,7 @@ import {
   moveWorkoutTemplateToFolder,
   renameFolder,
   renameWorkoutTemplate,
+  saveExerciseNote,
   saveWorkout,
 } from '../data/repository';
 import type {
@@ -39,6 +40,7 @@ import type {
   Exercise,
   FolderWithTemplates,
   MuscleGroup,
+  SaveWorkoutExercise,
   WorkoutDashboardData,
   WorkoutTemplate,
   WorkoutTemplateExercise,
@@ -77,6 +79,7 @@ type StartedWorkoutSet = {
   setNumber: number;
   previousWeight: number | null;
   previousReps: number | null;
+  duration: string;
   weight: string;
   reps: string;
   restSeconds: number;
@@ -86,6 +89,7 @@ type StartedWorkoutExercise = {
   key: string;
   exerciseId: number;
   name: string;
+  muscleGroup: MuscleGroup | null;
   note: string;
   noteOpen: boolean;
   sets: StartedWorkoutSet[];
@@ -142,6 +146,12 @@ function formatWorkoutDuration(totalSeconds: number) {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
+function formatCardioDurationInput(value: string) {
+  const totalSeconds = parseWorkoutDurationInput(value);
+
+  return totalSeconds === null ? null : formatWorkoutDuration(totalSeconds);
+}
+
 function parseWorkoutDurationInput(value: string) {
   const trimmedValue = value.trim();
 
@@ -174,6 +184,14 @@ function formatPreviousSet(weight: number | null, reps: number | null) {
   return `${weight} kg x ${reps}`;
 }
 
+function formatPreviousCardioSet(reps: number | null) {
+  if (reps === null) {
+    return '                  -';
+  }
+
+  return formatWorkoutDuration(reps);
+}
+
 function createStartedWorkout(workout: WorkoutTemplate): StartedWorkout {
   return {
     id: workout.id,
@@ -185,11 +203,15 @@ function createStartedWorkout(workout: WorkoutTemplate): StartedWorkout {
       return {
         exerciseId: exercise.id,
         key: `${exercise.id}-${exerciseIndex}`,
+        muscleGroup: exercise.muscleGroup,
         name: exercise.name,
-        note: '',
-        noteOpen: false,
+        note: exercise.note,
+        noteOpen: exercise.note.trim().length > 0,
         sets: [1, 2].map((setNumber) => ({
           completed: false,
+          duration: exercise.muscleGroup === 'Cardio' && previousReps !== null
+            ? formatWorkoutDuration(previousReps)
+            : '',
           id: `${exercise.id}-${exerciseIndex}-${setNumber}`,
           previousReps,
           previousWeight,
@@ -209,14 +231,14 @@ function parseSetNumber(value: string) {
   return Number.isFinite(parsedValue) ? parsedValue : 0;
 }
 
-function getOptionalTimerSoundModule() {
+function getRandomSetCompletionSoundModule() {
   const randomIndex = Math.floor(Math.random() * timerSoundModules.length);
 
   return timerSoundModules[randomIndex] ?? null;
 }
 
-function playTimerFinishedSound() {
-  const soundModule = getOptionalTimerSoundModule();
+function playSetCompletionSound() {
+  const soundModule = getRandomSetCompletionSoundModule();
 
   if (!soundModule) {
     return;
@@ -234,7 +256,7 @@ function playTimerFinishedSound() {
       }
     }, 5000);
   } catch {
-    // Missing or invalid local audio should fail silently for the timer.
+    // Missing or invalid local audio should fail silently for set completion.
   }
 }
 
@@ -264,7 +286,6 @@ export function WorkoutScreen() {
   const [activeRestTimer, setActiveRestTimer] = useState<ActiveRestTimer | null>(null);
   const folderRefs = useRef<Record<number, FolderViewRef | null>>({});
   const myWorkoutsHeadingRef = useRef<FolderViewRef | null>(null);
-  const playedRestSoundKeysRef = useRef<Set<string>>(new Set());
 
   // This loader fetches folders, templates, and unassigned workouts from repository.ts.
   const loadDashboard = useCallback(async () => {
@@ -332,21 +353,6 @@ export function WorkoutScreen() {
   }, [startedWorkout]);
 
   useEffect(() => {
-    if (!activeRestTimer || activeRestTimer.remaining > 0) {
-      return;
-    }
-
-    const timerKey = `${activeRestTimer.exerciseKey}-${activeRestTimer.setId}`;
-
-    if (playedRestSoundKeysRef.current.has(timerKey)) {
-      return;
-    }
-
-    playedRestSoundKeysRef.current.add(timerKey);
-    playTimerFinishedSound();
-  }, [activeRestTimer]);
-
-  useEffect(() => {
     if (selectedWorkoutId !== null && !selectedWorkout) {
       setSelectedWorkoutId(null);
       setDetailMenuOpen(false);
@@ -408,7 +414,6 @@ export function WorkoutScreen() {
               setIsStartedWorkoutMinimized(false);
               setWorkoutElapsedSeconds(0);
               setActiveRestTimer(null);
-              playedRestSoundKeysRef.current.clear();
             },
             title: 'Cancel workout',
           });
@@ -644,7 +649,7 @@ export function WorkoutScreen() {
     (
       exerciseKey: string,
       setId: string,
-      changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
+      changes: Partial<Pick<StartedWorkoutSet, 'duration' | 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
     ) => {
       setStartedWorkout((current) => {
         if (!current) {
@@ -691,8 +696,13 @@ export function WorkoutScreen() {
               ...exercise.sets,
               {
                 completed: false,
+                duration: lastSet?.duration ?? '',
                 id: `${exercise.key}-${nextSetNumber}-${Date.now()}`,
-                previousReps: lastSet?.reps ? parseSetNumber(lastSet.reps) : lastSet?.previousReps ?? null,
+                previousReps: exercise.muscleGroup === 'Cardio' && lastSet?.duration
+                  ? parseWorkoutDurationInput(lastSet.duration)
+                  : lastSet?.reps
+                    ? parseSetNumber(lastSet.reps)
+                    : lastSet?.previousReps ?? null,
                 previousWeight: lastSet?.weight
                   ? parseSetNumber(lastSet.weight)
                   : lastSet?.previousWeight ?? null,
@@ -733,7 +743,6 @@ export function WorkoutScreen() {
     setActiveRestTimer((current) =>
       current?.exerciseKey === exerciseKey && current.setId === setId ? null : current,
     );
-    playedRestSoundKeysRef.current.delete(`${exerciseKey}-${setId}`);
   }, []);
 
   const handleRemoveStartedExercise = useCallback((exerciseKey: string) => {
@@ -752,10 +761,15 @@ export function WorkoutScreen() {
   }, []);
 
   const updateStartedExerciseNote = useCallback((exerciseKey: string, note: string) => {
+    let exerciseIdToSave: number | null = null;
+
     setStartedWorkout((current) => {
       if (!current) {
         return current;
       }
+
+      const matchingExercise = current.exercises.find((exercise) => exercise.key === exerciseKey);
+      exerciseIdToSave = matchingExercise?.exerciseId ?? null;
 
       return {
         ...current,
@@ -764,6 +778,14 @@ export function WorkoutScreen() {
         ),
       };
     });
+
+    setSelectedExercise((current) =>
+      current?.id === exerciseIdToSave ? { ...current, note } : current,
+    );
+
+    if (exerciseIdToSave !== null) {
+      void saveExerciseNote(exerciseIdToSave, note);
+    }
   }, []);
 
   const openStartedExerciseNote = useCallback((exerciseKey: string) => {
@@ -806,11 +828,11 @@ export function WorkoutScreen() {
         setActiveRestTimer((current) =>
           current?.exerciseKey === exerciseKey && current.setId === set.id ? null : current,
         );
-        playedRestSoundKeysRef.current.delete(`${exerciseKey}-${set.id}`);
         return;
       }
 
       updateStartedWorkoutSet(exerciseKey, set.id, { completed: true });
+      playSetCompletionSound();
       setActiveRestTimer({
         duration: set.restSeconds,
         exerciseKey,
@@ -828,15 +850,28 @@ export function WorkoutScreen() {
       return;
     }
 
-    const completedExercises = workout.exercises
+    const completedExercises: SaveWorkoutExercise[] = workout.exercises
       .map((exercise) => ({
         exerciseId: exercise.exerciseId,
         sets: exercise.sets
           .filter((set) => set.completed)
-          .map((set) => ({
-            reps: Math.round(parseSetNumber(set.reps)),
-            weight: parseSetNumber(set.weight),
-          }))
+          .map((set) => {
+            if (exercise.muscleGroup === 'Cardio') {
+              const duration = formatCardioDurationInput(set.duration);
+              const durationSeconds = duration === null ? 0 : parseWorkoutDurationInput(duration) ?? 0;
+
+              return {
+                duration: duration ?? undefined,
+                reps: durationSeconds,
+                weight: 0,
+              };
+            }
+
+            return {
+              reps: Math.round(parseSetNumber(set.reps)),
+              weight: parseSetNumber(set.weight),
+            };
+          })
           .filter((set) => set.reps > 0 || set.weight > 0),
       }))
       .filter((exercise) => exercise.sets.length > 0);
@@ -850,7 +885,6 @@ export function WorkoutScreen() {
     setIsStartedWorkoutMinimized(false);
     setWorkoutElapsedSeconds(0);
     setActiveRestTimer(null);
-    playedRestSoundKeysRef.current.clear();
     setSelectedWorkoutId(null);
   }, [loadDashboard, startedWorkout]);
 
@@ -873,7 +907,6 @@ export function WorkoutScreen() {
         setIsStartedWorkoutMinimized(false);
         setWorkoutElapsedSeconds(0);
         setActiveRestTimer(null);
-        playedRestSoundKeysRef.current.clear();
       },
       title: 'Cancel workout',
     });
@@ -1030,6 +1063,18 @@ export function WorkoutScreen() {
     </>
   );
 
+  if (selectedExercise) {
+    return (
+      <>
+        <ExerciseInfoScreen
+          exercise={selectedExercise}
+          onBack={() => setSelectedExercise(null)}
+        />
+        {modalLayer}
+      </>
+    );
+  }
+
   if (startedWorkout && !isStartedWorkoutMinimized) {
     return (
       <>
@@ -1046,6 +1091,16 @@ export function WorkoutScreen() {
           onAddNote={openStartedExerciseNote}
           onChangeExerciseNote={updateStartedExerciseNote}
           onCloseEmptyExerciseNote={closeEmptyStartedExerciseNote}
+          onOpenExerciseInfo={(exercise) =>
+            setSelectedExercise({
+              id: exercise.exerciseId,
+              muscleGroup: exercise.muscleGroup,
+              name: exercise.name,
+              note: exercise.note,
+              previousReps: null,
+              previousWeight: null,
+            })
+          }
           onRemoveExercise={handleRemoveStartedExercise}
           onReplaceExercise={() => {
             setStartedExerciseMenuKey(null);
@@ -1058,18 +1113,6 @@ export function WorkoutScreen() {
           }
           startedExerciseMenuKey={startedExerciseMenuKey}
           workout={startedWorkout}
-        />
-        {modalLayer}
-      </>
-    );
-  }
-
-  if (selectedExercise) {
-    return (
-      <>
-        <ExerciseInfoScreen
-          exercise={selectedExercise}
-          onBack={() => setSelectedExercise(null)}
         />
         {modalLayer}
       </>
@@ -1102,7 +1145,6 @@ export function WorkoutScreen() {
             setWorkoutElapsedSeconds(0);
             setActiveRestTimer(null);
             setIsStartedWorkoutMinimized(false);
-            playedRestSoundKeysRef.current.clear();
             setStartedWorkout(createStartedWorkout(selectedWorkout));
           }}
           onToggleMenu={() => setDetailMenuOpen((current) => !current)}
@@ -1687,13 +1729,14 @@ type StartedWorkoutScreenProps = {
   onAddNote: (exerciseKey: string) => void;
   onChangeExerciseNote: (exerciseKey: string, note: string) => void;
   onCloseEmptyExerciseNote: (exerciseKey: string) => void;
+  onOpenExerciseInfo: (exercise: StartedWorkoutExercise) => void;
   onRemoveExercise: (exerciseKey: string) => void;
   onReplaceExercise: () => void;
   onToggleExerciseMenu: (exerciseKey: string) => void;
   onChangeSet: (
     exerciseKey: string,
     setId: string,
-    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
+    changes: Partial<Pick<StartedWorkoutSet, 'duration' | 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
   startedExerciseMenuKey: string | null;
 };
@@ -1711,6 +1754,7 @@ function StartedWorkoutScreen({
   onAddNote,
   onChangeExerciseNote,
   onCloseEmptyExerciseNote,
+  onOpenExerciseInfo,
   onRemoveExercise,
   onReplaceExercise,
   onToggleExerciseMenu,
@@ -1767,6 +1811,7 @@ function StartedWorkoutScreen({
             onCloseEmptyNote={() => onCloseEmptyExerciseNote(item.key)}
             onCompleteSet={(set) => onCompleteSet(item.key, set)}
             onDeleteSet={(setId) => onDeleteSet(item.key, setId)}
+            onOpenInfo={() => onOpenExerciseInfo(item)}
             onRemoveExercise={() => onRemoveExercise(item.key)}
             onReplaceExercise={onReplaceExercise}
             onToggleMenu={() => onToggleExerciseMenu(item.key)}
@@ -1785,6 +1830,7 @@ type StartedWorkoutExerciseSectionProps = {
   onAddNote: () => void;
   onChangeNote: (note: string) => void;
   onCloseEmptyNote: () => void;
+  onOpenInfo: () => void;
   onCompleteSet: (set: StartedWorkoutSet) => void;
   onDeleteSet: (setId: string) => void;
   onRemoveExercise: () => void;
@@ -1792,7 +1838,7 @@ type StartedWorkoutExerciseSectionProps = {
   onToggleMenu: () => void;
   onChangeSet: (
     setId: string,
-    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
+    changes: Partial<Pick<StartedWorkoutSet, 'duration' | 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
 };
 
@@ -1804,6 +1850,7 @@ function StartedWorkoutExerciseSection({
   onAddNote,
   onChangeNote,
   onCloseEmptyNote,
+  onOpenInfo,
   onCompleteSet,
   onDeleteSet,
   onRemoveExercise,
@@ -1812,6 +1859,7 @@ function StartedWorkoutExerciseSection({
   onChangeSet,
 }: StartedWorkoutExerciseSectionProps) {
   const showNote = exercise.noteOpen || exercise.note.trim().length > 0;
+  const isCardio = exercise.muscleGroup === 'Cardio';
 
   return (
     <View style={styles.startedExerciseSection}>
@@ -1819,7 +1867,7 @@ function StartedWorkoutExerciseSection({
         <Text numberOfLines={1} style={styles.startedExerciseTitle}>
           {exercise.name}
         </Text>
-        <Pressable style={styles.startedGraphButton}>
+        <Pressable onPress={onOpenInfo} style={styles.startedGraphButton}>
           <Ionicons color="#3b82f6" name="analytics-outline" size={18} />
         </Pressable>
         <Pressable onPress={onToggleMenu} style={styles.startedMoreButton}>
@@ -1846,8 +1894,14 @@ function StartedWorkoutExerciseSection({
       <View style={styles.startedSetHeader}>
         <Text style={[styles.startedSetHeaderText, styles.startedSetColumn]}>SET</Text>
         <Text style={[styles.startedSetHeaderText, styles.startedPreviousColumn]}>          PREVIOUS</Text>
-        <Text style={[styles.startedSetHeaderText, styles.startedInputColumn]}>KG</Text>
-        <Text style={[styles.startedSetHeaderText, styles.startedInputColumn]}>REPS</Text>
+        {isCardio ? (
+          <Text style={[styles.startedSetHeaderText, styles.startedTimeInputColumn]}>Time</Text>
+        ) : (
+          <>
+            <Text style={[styles.startedSetHeaderText, styles.startedInputColumn]}>KG</Text>
+            <Text style={[styles.startedSetHeaderText, styles.startedInputColumn]}>REPS</Text>
+          </>
+        )}
         <View style={styles.startedCheckColumn}>
           <Ionicons color="#ffffff" name="checkmark" size={16} />
         </View>
@@ -1873,6 +1927,7 @@ function StartedWorkoutExerciseSection({
             onChangeSet={onChangeSet}
             onComplete={() => onCompleteSet(set)}
             onDelete={() => onDeleteSet(set.id)}
+            isCardio={isCardio}
             set={set}
           />
           <StartedRestRow
@@ -1901,14 +1956,16 @@ type StartedWorkoutSetRowProps = {
   onDelete: () => void;
   onChangeSet: (
     setId: string,
-    changes: Partial<Pick<StartedWorkoutSet, 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
+    changes: Partial<Pick<StartedWorkoutSet, 'duration' | 'weight' | 'reps' | 'restSeconds' | 'completed'>>,
   ) => void;
+  isCardio: boolean;
 };
 
 function StartedWorkoutSetRow({
   set,
   exerciseKey,
   activeRestTimer,
+  isCardio,
   onComplete,
   onDelete,
   onChangeSet,
@@ -1947,20 +2004,40 @@ function StartedWorkoutSetRow({
           set.completed ? styles.startedCompletedPreviousText : null,
         ]}
       >
-        {formatPreviousSet(set.previousWeight, set.previousReps)}
+        {isCardio ? formatPreviousCardioSet(set.previousReps) : formatPreviousSet(set.previousWeight, set.previousReps)}
       </Text>
-      <TextInput
-        keyboardType="numeric"
-        onChangeText={(weight) => onChangeSet(set.id, { weight })}
-        style={[styles.startedSetInput, styles.startedInputColumn]}
-        value={set.weight}
-      />
-      <TextInput
-        keyboardType="number-pad"
-        onChangeText={(reps) => onChangeSet(set.id, { reps })}
-        style={[styles.startedSetInput, styles.startedInputColumn]}
-        value={set.reps}
-      />
+      {isCardio ? (
+        <TextInput
+          keyboardType="numbers-and-punctuation"
+          onBlur={() => {
+            const duration = formatCardioDurationInput(set.duration);
+
+            if (duration !== null) {
+              onChangeSet(set.id, { duration });
+            }
+          }}
+          onChangeText={(duration) => onChangeSet(set.id, { duration })}
+          placeholder="0:00"
+          placeholderTextColor="#8e8e93"
+          style={[styles.startedSetInput, styles.startedTimeInputColumn]}
+          value={set.duration}
+        />
+      ) : (
+        <>
+          <TextInput
+            keyboardType="numeric"
+            onChangeText={(weight) => onChangeSet(set.id, { weight })}
+            style={[styles.startedSetInput, styles.startedInputColumn]}
+            value={set.weight}
+          />
+          <TextInput
+            keyboardType="number-pad"
+            onChangeText={(reps) => onChangeSet(set.id, { reps })}
+            style={[styles.startedSetInput, styles.startedInputColumn]}
+            value={set.reps}
+          />
+        </>
+      )}
       <Pressable
         onPress={onComplete}
         style={[
@@ -2435,8 +2512,8 @@ const styles = StyleSheet.create({
     color: '#ff453a',
   },
   startedExerciseNoteInput: {
-    backgroundColor: '#3a4447',
-    borderColor: '#3a4447',
+    backgroundColor: '#1c1c1e',
+    borderColor: '#3a3a3c',
     borderRadius: 6,
     borderWidth: 1,
     color: '#ffffff',
@@ -2470,6 +2547,10 @@ const styles = StyleSheet.create({
   startedInputColumn: {
     textAlign: 'center',
     width: 53,
+  },
+  startedTimeInputColumn: {
+    textAlign: 'center',
+    width: 111,
   },
   startedCheckColumn: {
     alignItems: 'center',

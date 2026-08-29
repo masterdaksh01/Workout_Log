@@ -16,6 +16,17 @@ function formatTimestamp(timestamp: string) {
   return new Date(timestamp).toLocaleString();
 }
 
+function formatSetValue(
+  set: WorkoutDetail['exercises'][number]['sets'][number],
+  muscleGroup: WorkoutDetail['exercises'][number]['muscleGroup'],
+) {
+  if (muscleGroup === 'Cardio' && set.duration) {
+    return set.duration;
+  }
+
+  return `${set.weight} x ${set.reps}`;
+}
+
 // Animated workout row fades in when it first appears.
 function AnimatedWorkoutRow({
   workout,
@@ -129,7 +140,7 @@ export function HistoryScreen() {
             {exercise.sets.map((set, index) => (
               <View key={set.id} style={styles.setRow}>
                 <Text style={styles.setText}>Set {index + 1}</Text>
-                <Text style={styles.setText}>{set.weight} x {set.reps}</Text>
+                <Text style={styles.setText}>{formatSetValue(set, exercise.muscleGroup)}</Text>
               </View>
             ))}
           </View>

@@ -28,6 +28,7 @@ export type Exercise = {
   baseKey: string | null;
   name: string;
   muscleGroup: MuscleGroup | null;
+  note: string;
   source: ExerciseSource;
   maxVolume: number;
 };
@@ -63,6 +64,7 @@ export type WorkoutSet = {
   id: number;
   weight: number;
   reps: number;
+  duration: string | null;
 };
 
 // This type groups a performed exercise with its sets for the HistoryScreen detail view.
@@ -70,6 +72,7 @@ export type WorkoutDetailExercise = {
   id: number;
   exerciseId: number;
   exerciseName: string;
+  muscleGroup: MuscleGroup | null;
   sets: WorkoutSet[];
 };
 
@@ -94,6 +97,7 @@ export type SaveWorkoutExercise = {
   sets: Array<{
     weight: number;
     reps: number;
+    duration?: string;
   }>;
 };
 
@@ -118,6 +122,7 @@ export type WorkoutTemplateExercise = {
   id: number;
   name: string;
   muscleGroup: MuscleGroup | null;
+  note: string;
   previousWeight: number | null;
   previousReps: number | null;
 };

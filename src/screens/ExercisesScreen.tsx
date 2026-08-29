@@ -18,7 +18,7 @@ type MuscleCallout = {
   side: CalloutSide;
   top: number;
 };
-type ExerciseInfo = Pick<Exercise, 'muscleGroup' | 'name'>;
+type ExerciseInfo = Pick<Exercise, 'muscleGroup' | 'name' | 'note'>;
 type RestTimerSettings = {
   workSet: number;
 };
@@ -264,6 +264,13 @@ export function ExerciseInfoScreen({ exercise, onBack }: ExerciseInfoScreenProps
           <Text style={styles.aboutValue}>
             {exercise.muscleGroup === 'Cardio' ? 'Duration' : 'Weight and reps'}
           </Text>
+
+          {exercise.note.trim() ? (
+            <>
+              <Text style={styles.aboutHeading}>NOTE</Text>
+              <Text style={styles.exerciseNote}>{exercise.note}</Text>
+            </>
+          ) : null}
 
           <Text style={styles.aboutHeading}>PREFERENCES</Text>
           <Pressable
@@ -606,6 +613,18 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 20,
     marginBottom: 16,
+  },
+  exerciseNote: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#3a3a3c',
+    borderRadius: 6,
+    borderWidth: 1,
+    color: '#ffffff',
+    fontSize: 17,
+    lineHeight: 24,
+    marginBottom: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
   },
   exerciseDetailContent: {
     paddingBottom: 28,

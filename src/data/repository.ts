@@ -34,6 +34,8 @@ type WorkoutRow = {
   setId: number | null;
   weight: number | null;
   reps: number | null;
+  duration: string | null;
+  muscleGroup: MuscleGroup | null;
 };
 
 // This row type converts SQLite folder column names into the Folder shape from types.ts.
@@ -49,6 +51,7 @@ type TemplateExerciseRow = {
   exerciseId: number;
   exerciseName: string | null;
   muscleGroup: MuscleGroup | null;
+  note: string | null;
   previousWeight: number | null;
   previousReps: number | null;
 };
@@ -105,6 +108,7 @@ export async function getExercises() {
         base_key AS baseKey,
         name,
         muscle_group AS muscleGroup,
+        COALESCE(note, '') AS note,
         source,
         max_volume AS maxVolume
       FROM exercises
@@ -124,6 +128,7 @@ export async function getExercisesByMuscleGroup(muscleGroup: MuscleGroup) {
         base_key AS baseKey,
         name,
         muscle_group AS muscleGroup,
+        COALESCE(note, '') AS note,
         source,
         max_volume AS maxVolume
       FROM exercises
@@ -297,9 +302,16 @@ export async function createCustomExercise(input: CreateExerciseInput): Promise<
     baseKey: null,
     name,
     muscleGroup: input.muscleGroup,
+    note: '',
     source: 'user',
     maxVolume: 0,
   };
+}
+
+export async function saveExerciseNote(id: number, note: string) {
+  const db = await getDatabase();
+
+  await db.runAsync('UPDATE exercises SET note = ? WHERE id = ?', note, id);
 }
 
 // This function deletes an exercise from the exercises table when ExercisesScreen requests it.
@@ -407,6 +419,7 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       workout_exercises.exercise_id AS exerciseId,
       exercises.name AS exerciseName,
       exercises.muscle_group AS muscleGroup,
+      exercises.note AS note,
       workout_exercises.previous_weight AS previousWeight,
       workout_exercises.previous_reps AS previousReps
     FROM workout_exercises
@@ -433,6 +446,7 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       id: exercise.exerciseId,
       muscleGroup: exercise.muscleGroup,
       name: exerciseName,
+      note: exercise.note ?? '',
       previousReps: exercise.previousReps,
       previousWeight: exercise.previousWeight,
     });
@@ -624,10 +638,11 @@ export async function saveWorkout(exercises: SaveWorkoutExercise[]) {
 
       for (const set of exercise.sets) {
         await db.runAsync(
-          'INSERT INTO sets (workout_exercise_id, weight, reps) VALUES (?, ?, ?)',
+          'INSERT INTO sets (workout_exercise_id, weight, reps, duration) VALUES (?, ?, ?, ?)',
           workoutExerciseResult.lastInsertRowId,
           set.weight,
           set.reps,
+          set.duration ?? null,
         );
         await updateWorkoutExercisePerformanceStats(
           workoutExerciseResult.lastInsertRowId,
@@ -679,9 +694,11 @@ export async function getWorkout(id: number): Promise<WorkoutDetail | null> {
         workout_exercises.id AS workoutExerciseId,
         workout_exercises.exercise_id AS exerciseId,
         exercises.name AS exerciseName,
+        exercises.muscle_group AS muscleGroup,
         sets.id AS setId,
         sets.weight,
-        sets.reps
+        sets.reps,
+        sets.duration
       FROM workouts
       LEFT JOIN workout_exercises
         ON workout_exercises.workout_id = workouts.id
@@ -720,6 +737,7 @@ export async function getWorkout(id: number): Promise<WorkoutDetail | null> {
         id: row.workoutExerciseId,
         exerciseId: row.exerciseId,
         exerciseName: row.exerciseName ?? `Deleted exercise #${row.exerciseId}`,
+        muscleGroup: row.muscleGroup,
         sets: [],
       };
       exerciseMap.set(row.workoutExerciseId, workoutExercise);
@@ -731,6 +749,7 @@ export async function getWorkout(id: number): Promise<WorkoutDetail | null> {
         id: row.setId,
         weight: row.weight,
         reps: row.reps,
+        duration: row.duration,
       };
       workoutExercise.sets.push(set);
     }
