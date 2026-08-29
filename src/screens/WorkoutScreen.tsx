@@ -2800,7 +2800,7 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 56,
     paddingHorizontal: 12,
-    paddingTop: 4,
+    paddingTop: 9,
   },
   startedIconButton: {
     alignItems: 'center',
@@ -3148,6 +3148,7 @@ const styles = StyleSheet.create({
   createHeader: {
     gap: 12,
     marginBottom: 20,
+    paddingTop: 5,
   },
   createTitle: {
     color: '#ffffff',
@@ -3156,14 +3157,14 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#000000',
     borderBottomColor: 'rgba(59,130,246,0.08)',
     borderBottomWidth: 1,
     flexDirection: 'row',
     gap: 12,
     minHeight: 74,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 17,
     shadowColor: '#3b82f6',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
@@ -3272,7 +3273,7 @@ const styles = StyleSheet.create({
     minHeight: 56,
     paddingBottom: 8,
     paddingHorizontal: 12,
-    paddingTop: 12,
+    paddingTop: 17,
   },
   draggingCard: {
     elevation: 8,

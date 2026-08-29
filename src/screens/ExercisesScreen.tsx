@@ -499,6 +499,7 @@ const styles = StyleSheet.create({
   backButton: {
     alignSelf: 'flex-start',
     marginBottom: 16,
+    marginTop: 5,
   },
   bodyImage: {
     height: '100%',
@@ -656,7 +657,7 @@ const styles = StyleSheet.create({
     gap: 12,
     minHeight: 64,
     paddingHorizontal: 8,
-    paddingTop: 4,
+    paddingTop: 9,
   },
   exerciseDetailScreen: {
     backgroundColor: '#000000',

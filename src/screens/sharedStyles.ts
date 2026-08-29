@@ -70,5 +70,6 @@ export const sharedStyles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3,
     marginBottom: 16,
+    marginTop: 5,
   },
 });

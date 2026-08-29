@@ -337,6 +337,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
     marginLeft: -8,
+    marginTop: 5,
     width: 34,
   },
   detailContent: {
@@ -401,7 +402,7 @@ const styles = StyleSheet.create({
     gap: 12,
     minHeight: 74,
     paddingHorizontal: 24,
-    paddingTop: 12,
+    paddingTop: 17,
     shadowColor: '#3b82f6',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
