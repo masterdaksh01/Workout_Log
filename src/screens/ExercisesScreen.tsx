@@ -18,7 +18,7 @@ type MuscleCallout = {
   side: CalloutSide;
   top: number;
 };
-type ExerciseInfo = Pick<Exercise, 'muscleGroup' | 'name' | 'note'>;
+type ExerciseInfo = Pick<Exercise, 'muscleGroup' | 'name' | 'note' | 'personalBestReps' | 'personalBestWeight'>;
 type RestTimerSettings = {
   workSet: number;
 };
@@ -265,6 +265,22 @@ export function ExerciseInfoScreen({ exercise, onBack }: ExerciseInfoScreenProps
             {exercise.muscleGroup === 'Cardio' ? 'Duration' : 'Weight and reps'}
           </Text>
 
+          <Text style={styles.aboutHeading}>PERSONAL BEST</Text>
+          {exercise.personalBestWeight !== null && exercise.personalBestReps !== null ? (
+            <View style={styles.personalBestRow}>
+              <View style={styles.personalBestMetric}>
+                <Text style={styles.personalBestValue}>{formatWeightValue(exercise.personalBestWeight)}</Text>
+                <Text style={styles.personalBestLabel}>weight</Text>
+              </View>
+              <View style={styles.personalBestMetric}>
+                <Text style={styles.personalBestValue}>{exercise.personalBestReps}</Text>
+                <Text style={styles.personalBestLabel}>reps</Text>
+              </View>
+            </View>
+          ) : (
+            <Text style={styles.aboutValue}>No sets yet</Text>
+          )}
+
           {exercise.note.trim() ? (
             <>
               <Text style={styles.aboutHeading}>NOTE</Text>
@@ -472,6 +488,10 @@ function formatWorkoutDuration(totalSeconds: number) {
   const seconds = totalSeconds % 60;
 
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function formatWeightValue(weight: number) {
+  return Number.isInteger(weight) ? `${weight}` : `${weight.toFixed(1)}`;
 }
 
 // These styles create the dark visual browser, callout geometry, and selected-group exercise list.
@@ -724,6 +744,33 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: 20,
+  },
+  personalBestLabel: {
+    color: '#8e8e93',
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  personalBestMetric: {
+    backgroundColor: '#1c1c1e',
+    borderColor: '#3a3a3c',
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    minHeight: 76,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  personalBestRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  personalBestValue: {
+    color: '#ffffff',
+    fontSize: 24,
+    fontWeight: '700',
   },
   preferenceRow: {
     alignItems: 'center',

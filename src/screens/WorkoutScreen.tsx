@@ -1097,6 +1097,8 @@ export function WorkoutScreen() {
               muscleGroup: exercise.muscleGroup,
               name: exercise.name,
               note: exercise.note,
+              personalBestReps: null,
+              personalBestWeight: null,
               previousReps: null,
               previousWeight: null,
             })

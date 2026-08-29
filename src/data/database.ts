@@ -85,7 +85,9 @@ export async function initDatabase() {
       muscle_group TEXT,
       note TEXT NOT NULL DEFAULT '',
       source TEXT NOT NULL DEFAULT 'user',
-      max_volume REAL NOT NULL DEFAULT 0
+      max_volume REAL NOT NULL DEFAULT 0,
+      personal_best_weight REAL,
+      personal_best_reps INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS folders (
@@ -196,6 +198,14 @@ async function migrateExerciseColumns() {
     await db.execAsync('ALTER TABLE exercises ADD COLUMN max_volume REAL NOT NULL DEFAULT 0;');
   }
 
+  if (!columnNames.has('personal_best_weight')) {
+    await db.execAsync('ALTER TABLE exercises ADD COLUMN personal_best_weight REAL;');
+  }
+
+  if (!columnNames.has('personal_best_reps')) {
+    await db.execAsync('ALTER TABLE exercises ADD COLUMN personal_best_reps INTEGER;');
+  }
+
   if (columnNames.has('category')) {
     await db.execAsync(`
       UPDATE exercises
@@ -284,7 +294,9 @@ async function rebuildExercisesTable() {
       muscle_group TEXT,
       note TEXT NOT NULL DEFAULT '',
       source TEXT NOT NULL DEFAULT 'user',
-      max_volume REAL NOT NULL DEFAULT 0
+      max_volume REAL NOT NULL DEFAULT 0,
+      personal_best_weight REAL,
+      personal_best_reps INTEGER
     );
 
     INSERT INTO exercises_next (
@@ -294,7 +306,9 @@ async function rebuildExercisesTable() {
       muscle_group,
       note,
       source,
-      max_volume
+      max_volume,
+      personal_best_weight,
+      personal_best_reps
     )
     SELECT
       id,
@@ -303,7 +317,9 @@ async function rebuildExercisesTable() {
       muscle_group,
       COALESCE(note, ''),
       source,
-      COALESCE(max_volume, 0)
+      COALESCE(max_volume, 0),
+      personal_best_weight,
+      personal_best_reps
     FROM exercises;
 
     DROP TABLE exercises;
@@ -508,17 +524,74 @@ async function rebuildWorkoutExercisePreviousHitStats() {
   `);
 }
 
-// This backfills app-wide max volume for each exercise from all saved workout history.
+// This backfills app-wide personal bests for each exercise from all saved workout history.
 async function rebuildExerciseMaxVolumeStats() {
   const db = await getDatabase();
 
   await db.execAsync(`
+    WITH
+      ranked_volume_sets AS (
+        SELECT
+          workout_exercises.exercise_id,
+          sets.weight,
+          sets.reps,
+          sets.weight * sets.reps AS volume,
+          ROW_NUMBER() OVER (
+            PARTITION BY workout_exercises.exercise_id
+            ORDER BY sets.weight * sets.reps DESC, sets.id DESC
+          ) AS volume_rank
+        FROM workout_exercises
+        JOIN sets ON sets.workout_exercise_id = workout_exercises.id
+      ),
+      ranked_one_rep_sets AS (
+        SELECT
+          workout_exercises.exercise_id,
+          sets.weight,
+          sets.reps,
+          ROW_NUMBER() OVER (
+            PARTITION BY workout_exercises.exercise_id
+            ORDER BY sets.weight DESC, sets.id DESC
+          ) AS one_rep_rank
+        FROM workout_exercises
+        JOIN sets ON sets.workout_exercise_id = workout_exercises.id
+        WHERE sets.reps = 1
+      ),
+      exercise_bests AS (
+        SELECT
+          exercises.id AS exercise_id,
+          COALESCE(volume_sets.volume, 0) AS max_volume,
+          CASE
+            WHEN one_rep_sets.weight > COALESCE(volume_sets.weight, 0) THEN one_rep_sets.weight
+            ELSE volume_sets.weight
+          END AS personal_best_weight,
+          CASE
+            WHEN one_rep_sets.weight > COALESCE(volume_sets.weight, 0) THEN one_rep_sets.reps
+            ELSE volume_sets.reps
+          END AS personal_best_reps
+        FROM exercises
+        LEFT JOIN ranked_volume_sets AS volume_sets
+          ON volume_sets.exercise_id = exercises.id
+          AND volume_sets.volume_rank = 1
+        LEFT JOIN ranked_one_rep_sets AS one_rep_sets
+          ON one_rep_sets.exercise_id = exercises.id
+          AND one_rep_sets.one_rep_rank = 1
+      )
     UPDATE exercises
-    SET max_volume = COALESCE((
-      SELECT MAX(sets.weight * sets.reps)
-      FROM workout_exercises
-      JOIN sets ON sets.workout_exercise_id = workout_exercises.id
-      WHERE workout_exercises.exercise_id = exercises.id
-    ), 0);
+    SET
+      max_volume = (
+        SELECT exercise_bests.max_volume
+        FROM exercise_bests
+        WHERE exercise_bests.exercise_id = exercises.id
+      ),
+      personal_best_weight = (
+        SELECT exercise_bests.personal_best_weight
+        FROM exercise_bests
+        WHERE exercise_bests.exercise_id = exercises.id
+      ),
+      personal_best_reps = (
+        SELECT exercise_bests.personal_best_reps
+        FROM exercise_bests
+        WHERE exercise_bests.exercise_id = exercises.id
+      );
   `);
 }

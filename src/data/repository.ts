@@ -54,6 +54,8 @@ type TemplateExerciseRow = {
   note: string | null;
   previousWeight: number | null;
   previousReps: number | null;
+  personalBestWeight: number | null;
+  personalBestReps: number | null;
 };
 
 // This row type carries template card metadata from SQLite into WorkoutDashboardData.
@@ -110,7 +112,9 @@ export async function getExercises() {
         muscle_group AS muscleGroup,
         COALESCE(note, '') AS note,
         source,
-        max_volume AS maxVolume
+        max_volume AS maxVolume,
+        personal_best_weight AS personalBestWeight,
+        personal_best_reps AS personalBestReps
       FROM exercises
       ORDER BY LOWER(name), id DESC
     `,
@@ -130,7 +134,9 @@ export async function getExercisesByMuscleGroup(muscleGroup: MuscleGroup) {
         muscle_group AS muscleGroup,
         COALESCE(note, '') AS note,
         source,
-        max_volume AS maxVolume
+        max_volume AS maxVolume,
+        personal_best_weight AS personalBestWeight,
+        personal_best_reps AS personalBestReps
       FROM exercises
       WHERE muscle_group = ?
       ORDER BY LOWER(name), id DESC
@@ -305,6 +311,8 @@ export async function createCustomExercise(input: CreateExerciseInput): Promise<
     note: '',
     source: 'user',
     maxVolume: 0,
+    personalBestReps: null,
+    personalBestWeight: null,
   };
 }
 
@@ -420,6 +428,8 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       exercises.name AS exerciseName,
       exercises.muscle_group AS muscleGroup,
       exercises.note AS note,
+      exercises.personal_best_weight AS personalBestWeight,
+      exercises.personal_best_reps AS personalBestReps,
       workout_exercises.previous_weight AS previousWeight,
       workout_exercises.previous_reps AS previousReps
     FROM workout_exercises
@@ -447,6 +457,8 @@ export async function getWorkoutDashboardData(): Promise<WorkoutDashboardData> {
       muscleGroup: exercise.muscleGroup,
       name: exerciseName,
       note: exercise.note ?? '',
+      personalBestReps: exercise.personalBestReps,
+      personalBestWeight: exercise.personalBestWeight,
       previousReps: exercise.previousReps,
       previousWeight: exercise.previousWeight,
     });
@@ -758,7 +770,7 @@ export async function getWorkout(id: number): Promise<WorkoutDetail | null> {
   return workout;
 }
 
-// This keeps previous hit per workout-card row and max volume app-wide per exercise.
+// This keeps previous hit per workout-card row and personal best app-wide per exercise.
 async function updateWorkoutExercisePerformanceStats(
   workoutExerciseId: number,
   exerciseId: number,
@@ -767,6 +779,25 @@ async function updateWorkoutExercisePerformanceStats(
 ) {
   const db = await getDatabase();
   const volume = weight * reps;
+  const personalBest = await db.getFirstAsync<{
+    maxVolume: number;
+    personalBestWeight: number | null;
+    personalBestReps: number | null;
+  }>(
+    `
+      SELECT
+        max_volume AS maxVolume,
+        personal_best_weight AS personalBestWeight,
+        personal_best_reps AS personalBestReps
+      FROM exercises
+      WHERE id = ?
+    `,
+    exerciseId,
+  );
+  const currentBestVolume = personalBest?.maxVolume ?? 0;
+  const currentBestWeight = personalBest?.personalBestWeight ?? 0;
+  const isOneRepPr = reps === 1 && weight > currentBestWeight;
+  const isVolumePr = volume > currentBestVolume;
 
   await db.runAsync(
     `
@@ -781,13 +812,20 @@ async function updateWorkoutExercisePerformanceStats(
     workoutExerciseId,
   );
   await db.runAsync(
-    `
-      UPDATE exercises
-      SET
-        max_volume = MAX(max_volume, ?)
-      WHERE id = ?
-    `,
-    volume,
-    exerciseId,
+    isOneRepPr || isVolumePr
+      ? `
+        UPDATE exercises
+        SET
+          max_volume = MAX(max_volume, ?),
+          personal_best_weight = ?,
+          personal_best_reps = ?
+        WHERE id = ?
+      `
+      : `
+        UPDATE exercises
+        SET max_volume = MAX(max_volume, ?)
+        WHERE id = ?
+      `,
+    ...(isOneRepPr || isVolumePr ? [volume, weight, reps, exerciseId] : [volume, exerciseId]),
   );
 }

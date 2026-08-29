@@ -31,6 +31,8 @@ export type Exercise = {
   note: string;
   source: ExerciseSource;
   maxVolume: number;
+  personalBestWeight: number | null;
+  personalBestReps: number | null;
 };
 
 export type CreateExerciseInput = {
@@ -125,6 +127,8 @@ export type WorkoutTemplateExercise = {
   note: string;
   previousWeight: number | null;
   previousReps: number | null;
+  personalBestWeight: number | null;
+  personalBestReps: number | null;
 };
 
 // This type combines a folder with the template cards nested beneath it in WorkoutScreen.

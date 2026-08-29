@@ -1,7 +1,7 @@
 -- Base exercise catalog bundled with the app.
 -- These rows are copied into the user's local SQLite database on startup.
 -- Custom user-created exercises are stored in the same exercises table with source = 'user'.
--- Previous hit is workout-card specific; max volume is app-wide per exercise.
+-- Previous hit is workout-card specific; personal best is app-wide per exercise.
 
 CREATE TABLE IF NOT EXISTS exercises (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS exercises (
   name TEXT NOT NULL,
   muscle_group TEXT,
   source TEXT NOT NULL DEFAULT 'user',
-  max_volume REAL NOT NULL DEFAULT 0
+  max_volume REAL NOT NULL DEFAULT 0,
+  personal_best_weight REAL,
+  personal_best_reps INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS workout_exercises (
