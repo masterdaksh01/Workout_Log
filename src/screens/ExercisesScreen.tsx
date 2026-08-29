@@ -37,23 +37,23 @@ const defaultRestTimerSettings: RestTimerSettings = {
 
 // These front-view callouts position every requested label beside its approximate body region.
 const frontCallouts: MuscleCallout[] = [
-  { muscleGroup: 'Shoulders', lineLength: 27, side: 'left', top: 20 },
-  { muscleGroup: 'Chest', lineLength: 80, side: 'right', top: 23.5 },
-  { muscleGroup: 'Biceps', lineLength: 40, side: 'left', top: 30 },
+  { muscleGroup: 'Shoulders', lineLength: 30, side: 'left', top: 19 },
+  { muscleGroup: 'Chest', lineLength: 80, side: 'right', top: 22 },
+  { muscleGroup: 'Biceps', lineLength: 48, side: 'left', top: 28 },
   { muscleGroup: 'Abs', lineLength: 115, side: 'right', top: 32 },
-  { muscleGroup: 'Forearms', lineLength: 10, side: 'left', top: 40 },
+  { muscleGroup: 'Forearms', lineLength: 18, side: 'left', top: 40 },
   { muscleGroup: 'Quads', lineLength: 75, side: 'right', top: 55 },
   { muscleGroup: 'Adductors', lineLength: 70, side: 'left', top: 55 },
 ];
 
 // These back-view callouts position every requested label beside its approximate body region.
 const backCallouts: MuscleCallout[] = [
-  { muscleGroup: 'Neck', lineLength: 100, side: 'right', top: 12 },
-  { muscleGroup: 'Traps', lineLength: 90, side: 'left', top: 18 },
-  { muscleGroup: 'Triceps', lineLength: 35, side: 'right', top: 25 },
-  { muscleGroup: 'Lats', lineLength: 90, side: 'left', top: 28 },
-  { muscleGroup: 'Lower Back', lineLength: 70, side: 'right', top: 36 },
-  { muscleGroup: 'Glutes', lineLength: 80, side: 'left', top: 43 },
+  { muscleGroup: 'Neck', lineLength: 110, side: 'right', top: 12 },
+  { muscleGroup: 'Traps', lineLength: 100, side: 'left', top: 17 },
+  { muscleGroup: 'Triceps', lineLength: 45, side: 'right', top: 25 },
+  { muscleGroup: 'Lats', lineLength: 95, side: 'left', top: 28 },
+  { muscleGroup: 'Lower Back', lineLength: 70, side: 'right', top: 35 },
+  { muscleGroup: 'Glutes', lineLength: 85, side: 'left', top: 43 },
   { muscleGroup: 'Hamstrings', lineLength: 40, side: 'right', top: 53 },
   { muscleGroup: 'Calves', lineLength: 65, side: 'left', top: 70 },
 ];
@@ -175,7 +175,7 @@ export function ExercisesScreen({
 
   // This render section layers native clickable labels and leader lines around a non-clickable body image.
   return (
-    <ScrollView contentContainerStyle={styles.browserContent} style={styles.screen}>
+    <View style={styles.browserContainer}>
       <Text style={sharedStyles.title}>Exercises</Text>
 
       <View style={styles.diagram}>
@@ -224,7 +224,7 @@ export function ExercisesScreen({
           <Text style={styles.rotateButtonText}>Rotate</Text>
         </Pressable>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -508,9 +508,11 @@ const styles = StyleSheet.create({
     top: 0,
     width: '100%',
   },
-  browserContent: {
-    padding: 16,
-    paddingBottom: 28,
+  browserContainer: {
+    backgroundColor: '#000000',
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   callout: {
     alignItems: 'center',
@@ -596,7 +598,7 @@ const styles = StyleSheet.create({
   },
   diagram: {
     alignSelf: 'center',
-    height: 620,
+    flex: 1,
     maxWidth: 480,
     position: 'relative',
     width: '100%',
