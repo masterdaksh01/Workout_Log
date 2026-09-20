@@ -1,4 +1,4 @@
 node_modules/
 .expo/
 *.log
-android/build
+/android/build
