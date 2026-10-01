@@ -51,6 +51,14 @@ const metricUnits: Record<ProfileMetricKey, string> = {
   calorieIntake: 'kcal',
 };
 
+const MAX_NAME_LENGTH = 50;
+const MAX_AGE = 120;
+const metricRanges: Record<ProfileMetricKey, { min: number; max: number }> = {
+  weight: { min: 0, max: 500 },
+  bodyFatPercentage: { min: 0, max: 100 },
+  calorieIntake: { min: 0, max: 10000 },
+};
+
 // This settings screen keeps profile fields intentionally simple so more fields can be added later.
 export function ProfileScreen() {
   const navigation = useNavigation<NavigationProp<RootTabParamList>>();
@@ -151,8 +159,14 @@ export function ProfileScreen() {
     }
 
     const trimmedValue = metricEntryValue.trim();
+    const numericValue = Number(trimmedValue);
+    const range = metricRanges[selectedMetric];
 
-    if (!trimmedValue) {
+    if (!trimmedValue || !Number.isFinite(numericValue) || numericValue < range.min || numericValue > range.max) {
+      return;
+    }
+
+    if (!isValidDateInput(metricEntryDate)) {
       return;
     }
 
@@ -218,7 +232,7 @@ export function ProfileScreen() {
           <SettingsInputRow
             label="Name"
             onBlur={() => saveProfileSettings(settings)}
-            onChangeText={(value) => updateSetting('name', value)}
+            onChangeText={(value) => updateSetting('name', value.slice(0, MAX_NAME_LENGTH))}
             placeholder="Add name"
             value={settings.name}
           />
@@ -226,7 +240,12 @@ export function ProfileScreen() {
             keyboardType="number-pad"
             label="Age"
             onBlur={() => saveProfileSettings(settings)}
-            onChangeText={(value) => updateSetting('age', value)}
+            onChangeText={(value) => {
+              const nextAge = value.replace(/\D/g, '').slice(0, 3);
+              if (!nextAge || Number(nextAge) <= MAX_AGE) {
+                updateSetting('age', nextAge);
+              }
+            }}
             placeholder="Add age"
             value={settings.age}
           />
@@ -557,6 +576,15 @@ function formatDateInputValue(date: Date) {
   ).padStart(2, '0')}`;
 }
 
+function isValidDateInput(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(date.getTime()) && formatDateInputValue(date) === value;
+}
+
 type MetricEntryScreenProps = {
   date: string;
   isVisible: boolean;
@@ -617,9 +645,10 @@ function MetricEntryWindow({
           <TextInput
             autoFocus
             keyboardType="decimal-pad"
+            maxLength={8}
             onChangeText={(nextValue) => {
               hasSavedRef.current = false;
-              onChangeValue(nextValue);
+              onChangeValue(nextValue.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'));
             }}
             onSubmitEditing={saveOnce}
             placeholder="0"
@@ -631,7 +660,8 @@ function MetricEntryWindow({
           <Text style={[styles.metricEntryLabel, styles.metricEntryDateLabel]}>Date</Text>
           <TextInput
             keyboardType="numbers-and-punctuation"
-            onChangeText={onChangeDate}
+            maxLength={10}
+            onChangeText={(nextValue) => onChangeDate(nextValue.replace(/[^0-9-]/g, ''))}
             placeholder="YYYY-MM-DD"
             placeholderTextColor="#8e8e93"
             returnKeyType="done"

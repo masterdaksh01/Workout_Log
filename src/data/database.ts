@@ -17,38 +17,85 @@ type ProfileSettingSeed = {
 };
 
 const BASE_EXERCISES: BaseExerciseSeed[] = [
-  { baseKey: 'barbell-overhead-press', name: 'Barbell Overhead Press', muscleGroup: 'Shoulders' },
-  { baseKey: 'dumbbell-lateral-raise', name: 'Dumbbell Lateral Raise', muscleGroup: 'Shoulders' },
-  { baseKey: 'barbell-bench-press', name: 'Barbell Bench Press', muscleGroup: 'Chest' },
-  { baseKey: 'incline-dumbbell-press', name: 'Incline Dumbbell Press', muscleGroup: 'Chest' },
-  { baseKey: 'barbell-curl', name: 'Barbell Curl', muscleGroup: 'Biceps' },
-  { baseKey: 'hammer-curl', name: 'Hammer Curl', muscleGroup: 'Biceps' },
-  { baseKey: 'cable-crunch', name: 'Cable Crunch', muscleGroup: 'Abs' },
-  { baseKey: 'plank', name: 'Plank', muscleGroup: 'Abs' },
-  { baseKey: 'wrist-curl', name: 'Wrist Curl', muscleGroup: 'Forearms' },
-  { baseKey: 'reverse-wrist-curl', name: 'Reverse Wrist Curl', muscleGroup: 'Forearms' },
-  { baseKey: 'barbell-squat', name: 'Barbell Squat', muscleGroup: 'Quads' },
-  { baseKey: 'leg-press', name: 'Leg Press', muscleGroup: 'Quads' },
-  { baseKey: 'hip-adduction-machine', name: 'Hip Adduction Machine', muscleGroup: 'Adductors' },
-  { baseKey: 'copenhagen-plank', name: 'Copenhagen Plank', muscleGroup: 'Adductors' },
-  { baseKey: 'treadmill-run', name: 'Treadmill Run', muscleGroup: 'Cardio' },
-  { baseKey: 'stationary-bike', name: 'Stationary Bike', muscleGroup: 'Cardio' },
-  { baseKey: 'neck-flexion', name: 'Neck Flexion', muscleGroup: 'Neck' },
-  { baseKey: 'neck-extension', name: 'Neck Extension', muscleGroup: 'Neck' },
-  { baseKey: 'triceps-pushdown', name: 'Triceps Pushdown', muscleGroup: 'Triceps' },
-  { baseKey: 'close-grip-bench-press', name: 'Close-Grip Bench Press', muscleGroup: 'Triceps' },
-  { baseKey: 'barbell-shrug', name: 'Barbell Shrug', muscleGroup: 'Traps' },
-  { baseKey: 'face-pull', name: 'Face Pull', muscleGroup: 'Traps' },
-  { baseKey: 'pull-up', name: 'Pull-Up', muscleGroup: 'Lats' },
-  { baseKey: 'lat-pulldown', name: 'Lat Pulldown', muscleGroup: 'Lats' },
-  { baseKey: 'back-extension', name: 'Back Extension', muscleGroup: 'Lower Back' },
-  { baseKey: 'good-morning', name: 'Good Morning', muscleGroup: 'Lower Back' },
-  { baseKey: 'barbell-hip-thrust', name: 'Barbell Hip Thrust', muscleGroup: 'Glutes' },
-  { baseKey: 'glute-bridge', name: 'Glute Bridge', muscleGroup: 'Glutes' },
-  { baseKey: 'romanian-deadlift', name: 'Romanian Deadlift', muscleGroup: 'Hamstrings' },
-  { baseKey: 'lying-leg-curl', name: 'Lying Leg Curl', muscleGroup: 'Hamstrings' },
-  { baseKey: 'standing-calf-raise', name: 'Standing Calf Raise', muscleGroup: 'Calves' },
-  { baseKey: 'seated-calf-raise', name: 'Seated Calf Raise', muscleGroup: 'Calves' },
+{ baseKey: 'barbell-overhead-press', name: 'Barbell Overhead Press', muscleGroup: 'Shoulders' },
+{ baseKey: 'machine-shoulder-press', name: 'Machine Shoulder Press', muscleGroup: 'Shoulders' },
+{ baseKey: 'dumbbell-shoulder-press', name: 'Dumbbell Shoulder Press', muscleGroup: 'Shoulders' },
+
+{ baseKey: 'cable-front-raise', name: 'Cable Front Raise', muscleGroup: 'Shoulders' },
+{ baseKey: 'machine-shoulder-press-front', name: 'Machine Shoulder Press (Front Delt)', muscleGroup: 'Shoulders' },
+
+{ baseKey: 'dumbbell-lateral-raise', name: 'Dumbbell Lateral Raise', muscleGroup: 'Shoulders' },
+{ baseKey: 'cable-lateral-raise', name: 'Cable Lateral Raise', muscleGroup: 'Shoulders' },
+{ baseKey: 'machine-lateral-raise', name: 'Machine Lateral Raise', muscleGroup: 'Shoulders' },
+
+{ baseKey: 'machine-rear-delt-fly', name: 'Machine Rear Delt Fly', muscleGroup: 'Shoulders' },
+{ baseKey: 'cable-rear-delt-fly', name: 'Cable Rear Delt Fly', muscleGroup: 'Shoulders' },
+{ baseKey: 'dumbbell-rear-delt-fly', name: 'Dumbbell Rear Delt Fly', muscleGroup: 'Shoulders' },
+
+{ baseKey: 'flat-barbell-bench-press', name: 'Flat Barbell Bench Press', muscleGroup: 'Chest' },
+{ baseKey: 'machine-chest-fly', name: 'Machine Chest Fly', muscleGroup: 'Chest' },
+
+{ baseKey: 'incline-dumbbell-press', name: 'Incline Dumbbell Press', muscleGroup: 'Chest' },
+{ baseKey: 'low-high-chest-fly', name: 'Low To High Chest Fly', muscleGroup: 'Chest' },
+{ baseKey: 'incline-barbell-bench-press', name: 'Incline Barbell Bench Press', muscleGroup: 'Chest' },
+
+{ baseKey: 'high-low-chest-fly', name: 'High To Low Chest Fly', muscleGroup: 'Chest' },
+{ baseKey: 'decline-machine-press', name: 'Decline Machine Press', muscleGroup: 'Chest' },
+
+{ baseKey: 'barbell-curl', name: 'Barbell Curl', muscleGroup: 'Biceps' },
+{ baseKey: 'dumbbell-curl', name: 'Dumbbell Curl', muscleGroup: 'Biceps' },
+{ baseKey: 'baysian-curl', name: 'Baysian Curl', muscleGroup: 'Biceps' },
+{ baseKey: 'preacher-curl', name: 'Preacher Curl', muscleGroup: 'Biceps' },
+{ baseKey: 'cable-curl', name: 'Cable Curl', muscleGroup: 'Biceps' },
+
+{ baseKey: 'cable-crunch', name: 'Cable Crunch', muscleGroup: 'Abs' },
+{ baseKey: 'machine-crunch', name: 'Machine Crunch', muscleGroup: 'Abs' },
+{ baseKey: 'leg-raise', name: 'Leg Raise', muscleGroup: 'Abs' },
+{ baseKey: 'decline-crunch', name: 'Decline Crunch', muscleGroup: 'Abs' },
+
+{ baseKey: 'wrist-curl', name: 'Wrist Curl', muscleGroup: 'Forearms' },
+{ baseKey: 'reverse-wrist-curl', name: 'Reverse Wrist Curl', muscleGroup: 'Forearms' },
+{ baseKey: 'hammer-curl', name: 'Hammer Curl', muscleGroup: 'Forearms' },
+{ baseKey: 'reverse-curl', name: 'Reverse Curl', muscleGroup: 'Forearms' },
+
+{ baseKey: 'squat', name: 'Squat', muscleGroup: 'Quads' },
+{ baseKey: 'leg-press', name: 'Leg Press', muscleGroup: 'Quads' },
+{ baseKey: 'leg-extension', name: 'Leg Extension', muscleGroup: 'Quads' },
+
+{ baseKey: 'hip-adduction-machine', name: 'Hip Adduction Machine', muscleGroup: 'Adductors' },
+{ baseKey: 'copenhagen-plank', name: 'Copenhagen Plank', muscleGroup: 'Adductors' },
+
+{ baseKey: 'treadmill-run', name: 'Treadmill Run', muscleGroup: 'Cardio' },
+{ baseKey: 'stationary-bike', name: 'Stationary Bike', muscleGroup: 'Cardio' },
+
+{ baseKey: 'neck-flexion', name: 'Neck Flexion', muscleGroup: 'Neck' },
+{ baseKey: 'neck-extension', name: 'Neck Extension', muscleGroup: 'Neck' },
+
+{ baseKey: 'triceps-pushdown', name: 'Triceps Pushdown', muscleGroup: 'Triceps' },
+{ baseKey: 'overhead-tricep-extension', name: 'Overhead Tricep Extension', muscleGroup: 'Triceps' },
+{ baseKey: 'close-grip-bench-press', name: 'Close-Grip Bench Press', muscleGroup: 'Triceps' },
+
+{ baseKey: 'Smith-machine-shrug', name: 'Smith Machine Shrug', muscleGroup: 'Traps' },
+{ baseKey: 'face-pull', name: 'Face Pull', muscleGroup: 'Traps' },
+{ baseKey: 't-bar-wide-grip', name: 'T-bar Wide Grip', muscleGroup: 'Traps' },
+{ baseKey: 'kelso-shrug', name: 'Kelso Shrug', muscleGroup: 'Traps' },
+
+{ baseKey: 'pull-up', name: 'Pull-Up', muscleGroup: 'Lats' },
+{ baseKey: 'lat-pulldown', name: 'Lat Pulldown', muscleGroup: 'Lats' },
+{ baseKey: 'pullover', name: 'Pullover', muscleGroup: 'Lats' },
+
+{ baseKey: 'back-extension', name: 'Back Extension', muscleGroup: 'Lower Back' },
+{ baseKey: 'good-morning', name: 'Good Morning', muscleGroup: 'Lower Back' },
+
+{ baseKey: 'barbell-hip-thrust', name: 'Barbell Hip Thrust', muscleGroup: 'Glutes' },
+{ baseKey: 'machine-hip-thrust', name: 'Machine Hip Thrust', muscleGroup: 'Glutes' },
+
+{ baseKey: 'romanian-deadlift', name: 'Romanian Deadlift', muscleGroup: 'Hamstrings' },
+{ baseKey: 'lying-leg-curl', name: 'Lying Leg Curl', muscleGroup: 'Hamstrings' },
+{ baseKey: 'seated-leg-curl', name: 'Seated Leg Curl', muscleGroup: 'Hamstrings' },
+
+{ baseKey: 'standing-calf-raise', name: 'Standing Calf Raise', muscleGroup: 'Calves' },
+{ baseKey: 'seated-calf-raise', name: 'Seated Calf Raise', muscleGroup: 'Calves' },
 ];
 
 const PROFILE_SETTING_SEEDS: ProfileSettingSeed[] = [
